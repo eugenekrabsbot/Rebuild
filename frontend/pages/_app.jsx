@@ -11,7 +11,7 @@ export default function App({ Component, pageProps }) {
   const [auth, setAuth] = useState({ isLoggedIn: false, user: null, role: 'public', token: null });
   const [isLoading, setIsLoading] = useState(true);
 
-  const cspHeader = `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://checkout.plisio.net https://checkout.paymentscloud.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://accept.authorize.net https://test.authorize.net;`.replace(/\s+/g, ' ').trim();
+  const cspHeader = `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com https://fonts.googleapis.com; connect-src 'self' https://checkout.plisio.net https://checkout.paymentscloud.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://accept.authorize.net https://test.authorize.net;`.replace(/\s+/g, ' ').trim();
 
   useEffect(() => {
     try { checkAndSetAffiliateFromUrl(); } catch (e) { console.warn('Failed to check affiliate URL:', e); }
@@ -46,7 +46,6 @@ export default function App({ Component, pageProps }) {
   return (
     <>
       <Head>
-        <meta httpEquiv="Content-Security-Policy" content={cspHeader} />
         <meta name="referrer" content="strict-origin-when-cross-origin" />
       </Head>
       <AuthContext.Provider value={{ ...auth, login, logout }}>

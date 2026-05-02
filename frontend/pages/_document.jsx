@@ -42,19 +42,7 @@ export default function Document() {
             @next/next/no-title-in-document-head rule to fire. The canonical
             default is set per-page in each pages/*.jsx file. */}
 
-        {/* Security Headers */}
-        <meta httpEquiv="X-UA-Compatible" content="ie=edge" />
-        <meta httpEquiv="Content-Type" content="text/html; charset=utf-8" />
-
-        {/* Cloudflare Web Analytics — token from https://dash.cloudflare.com/sites/{site}/analytics/settings */}
-        {/* Replace YOUR_CLOUDFLARE_TOKEN with the real token from your Cloudflare dashboard */}
-        <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "YOUR_CLOUDFLARE_TOKEN"}'></script>
-
-        {/* Google Analytics (placeholder) — uncomment and set GA_ID when ready */}
-        {/* <script async src="https://www.googletagmanager.com/gtag/js?id=GA_ID"></script> */}
-
-        {/* Preload critical resources */}
-        {/* <link rel="preload" as="style" href="/_next/static/css/global.css" /> */}
+        {/* Security Headers — managed by nginx, not meta tags */}
       </Head>
 
       <body>

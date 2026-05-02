@@ -48,7 +48,7 @@ function Header({ auth }) {
             ) : (
               <>
                 <Link href="/login" passHref><a style={styles.navLink} className={router.pathname === '/login' ? 'ahoy-nav-link-active' : ''}>Sign in</a></Link>
-                <Link href="/register" passHref><a style={styles.ctaBtn} className="ahoy-cta">Get Started</a></Link>
+
               </>
             )}
           </nav>

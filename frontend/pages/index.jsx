@@ -105,7 +105,20 @@ const HOME_FAQS = [
 export default function Home() {
   return (
     <>
-      <Head page="home" />
+      <Head>
+        <title>AHOY VPN - Privacy-First VPN. Zero Logs, Military-Grade Encryption</title>
+        <meta name="description" content="AhoyVPN is a privacy-first VPN with zero logs, military-grade encryption, and no email required. Starting at $5.99/month with up to 10 simultaneous connections." />
+        <meta name="keywords" content="VPN, privacy, secure, no logs, anonymous, encryption" />
+        <meta property="og:title" content="AHOY VPN - Privacy-First VPN Service" />
+        <meta property="og:description" content="Secure your internet connection with military-grade encryption. Zero logs, no tracking, no compromises." />
+        <meta property="og:url" content="https://ahoyvpn.net" />
+        <meta property="og:image" content="https://ahoyvpn.net/og-image.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:site" content="@AhoyVPN" />
+        <meta name="twitter:title" content="AHOY VPN - Privacy-First VPN Service" />
+        <meta name="twitter:description" content="Secure your internet connection with military-grade encryption. Zero logs, no tracking, no compromises." />
+        <link rel="canonical" href="https://ahoyvpn.net" />
+      </Head>
 
       {/* JSON-LD Structured Data */}
       <script

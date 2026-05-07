@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
+import Head from '../components/Head';
 import { Button } from '../components/ui';
 
 const FEATURES = [
@@ -103,7 +104,37 @@ const HOME_FAQS = [
 
 export default function Home() {
   return (
-    <div style={styles.page}>
+    <>
+      <Head page="home" />
+
+      {/* JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'SoftwareApplication',
+            name: 'AhoyVPN',
+            url: 'https://ahoyvpn.net',
+            description: 'Privacy-first VPN service with zero logs, military-grade encryption, and no email required.',
+            applicationCategory: 'SecurityApplication',
+            operatingSystem: 'Windows, macOS, Linux, iOS, Android',
+            offers: {
+              '@type': 'Offer',
+              price: '5.99',
+              priceCurrency: 'USD',
+              priceValidUntil: '2027-12-31',
+            },
+            publisher: {
+              '@type': 'Organization',
+              name: 'AhoyVPN',
+              url: 'https://ahoyvpn.net',
+            },
+          }),
+        }}
+      />
+
+      <div style={styles.page}>
       {/* Hero */}
       <section style={styles.hero}>
         <div style={styles.heroInner}>
@@ -242,7 +273,7 @@ export default function Home() {
               alt="Instagram"
               width="20"
               height="20"
-              style={{ display: 'block' }}
+              style={{ display: 'block', aspectRatio: '1/1', objectFit: 'contain' }}
             />
             Instagram
           </a>
@@ -253,14 +284,15 @@ export default function Home() {
               alt="Facebook"
               width="20"
               height="20"
-              style={{ display: 'block' }}
+              style={{ display: 'block', aspectRatio: '1/1', objectFit: 'contain' }}
             />
             Facebook
           </a>
         </div>
         <p style={styles.footerCopy}>&copy; {new Date().getFullYear()} AhoyVPN. All rights reserved.</p>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -19,12 +19,12 @@ export default function Document() {
         <meta property="og:description" content="Secure your internet connection with military-grade encryption. Zero logs, no tracking, no compromises." />
         <meta property="og:image" content="https://ahoyvpn.net/og-image.png" />
 
-        {/* Twitter Card */}
-        <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:url" content="https://ahoyvpn.net" />
-        <meta property="twitter:title" content="AHOY VPN - Privacy-First VPN Service" />
-        <meta property="twitter:description" content="Secure your internet connection with military-grade encryption." />
-        <meta property="twitter:image" content="https://ahoyvpn.net/og-image.png" />
+        {/* Twitter Card — use name= not property= for twitter meta tags */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:url" content="https://ahoyvpn.net" />
+        <meta name="twitter:title" content="AHOY VPN - Privacy-First VPN Service" />
+        <meta name="twitter:description" content="Secure your internet connection with military-grade encryption. Zero logs, no tracking, no compromises." />
+        <meta name="twitter:image" content="https://ahoyvpn.net/og-image.png" />
 
         {/* Canonical */}
         <link rel="canonical" href="https://ahoyvpn.net" />
@@ -42,7 +42,12 @@ export default function Document() {
             @next/next/no-title-in-document-head rule to fire. The canonical
             default is set per-page in each pages/*.jsx file. */}
 
-        {/* Security Headers — managed by nginx, not meta tags */}
+        {/* Security Headers — HSTS, X-Frame-Options, etc. */}
+        <meta httpEquiv="Strict-Transport-Security" content="max-age=31536000; includeSubDomains; preload" />
+        <meta httpEquiv="X-Content-Type-Options" content="nosniff" />
+        <meta httpEquiv="X-Frame-Options" content="DENY" />
+        <meta httpEquiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+        <meta httpEquiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()" />
       </Head>
 
       <body>

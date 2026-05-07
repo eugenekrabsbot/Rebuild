@@ -1,16 +1,16 @@
 // SEO utility for dynamic page metadata
 
 export const defaultMeta = {
-  title: 'AHOY VPN - Privacy-First VPN Service',
-  description: 'Secure your internet connection with military-grade encryption. Zero logs, no tracking, no compromises.',
+  title: 'AhoyVPN - Privacy-First VPN. Zero Logs, Military-Grade Encryption',
+  description: 'AhoyVPN is a privacy-first VPN with zero logs, military-grade encryption, and no email required. Starting at $5.99/month with up to 10 devices.',
   url: 'https://ahoyvpn.net',
   image: 'https://ahoyvpn.net/og-image.png',
 };
 
 export const pageMeta = {
   home: {
-    title: 'AHOY VPN - Privacy-First VPN Service',
-    description: 'Secure, private VPN. Zero logs. No email required. Fast encryption with 50+ global servers.',
+    title: 'AhoyVPN - Privacy-First VPN. Zero Logs, Military-Grade Encryption',
+    description: 'AhoyVPN is a privacy-first VPN with zero logs, military-grade encryption, and no email required. Starting at $5.99/month with up to 10 simultaneous connections.',
     keywords: 'VPN, privacy, secure, no logs, anonymous, encryption',
   },
   checkout: {

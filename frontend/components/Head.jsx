@@ -20,6 +20,8 @@ export default function Head({ page, title, description, children }) {
       <meta property="og:image" content={defaultMeta.image} />
 
       {/* Twitter Card */}
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:site" content="@AhoyVPN" />
       <meta name="twitter:title" content={finalTitle} />
       <meta name="twitter:description" content={finalDescription} />
       <meta name="twitter:image" content={defaultMeta.image} />

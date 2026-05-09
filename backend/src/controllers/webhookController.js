@@ -409,12 +409,11 @@ const authorizeNetWebhook = async (req, res) => {
           `SELECT s.*, p.interval as plan_interval, p.amount_cents
            FROM subscriptions s
            JOIN plans p ON p.id = s.plan_id
-           WHERE s.account_number = $1 AND s.status = 'trialing'
+           WHERE s.account_number = $1
            ORDER BY s.created_at DESC
            LIMIT 1`,
           [accountNumber]
         );
-
         if (fallback.rows.length > 0) {
           subResult = fallback;
           await db.query(
@@ -424,6 +423,57 @@ const authorizeNetWebhook = async (req, res) => {
              WHERE id = $2`,
             [JSON.stringify({ invoice_number: invoiceNumber }), fallback.rows[0].id]
           );
+        }
+      }
+    }
+
+    // ARB renewal fallback: look up by arb_subscription_id.
+    // Authorize.net ARB renewal webhooks may carry the ARB subscription ID
+    // in req.body.payload.subscriptionId — try that before giving up.
+    if (subResult.rows.length === 0 && transactionId) {
+      // Try transactionId as arb_subscription_id
+      const arbFallback = await db.query(
+        `SELECT s.*, p.interval as plan_interval, p.amount_cents
+         FROM subscriptions s
+         JOIN plans p ON p.id = s.plan_id
+         WHERE s.arb_subscription_id = $1
+         LIMIT 1`,
+        [transactionId]
+      );
+      if (arbFallback.rows.length > 0) {
+        subResult = arbFallback;
+        log.warn('Authorize.net webhook: matched by arb_subscription_id', { transactionId });
+      }
+    }
+
+    // ARB charged webhook: subscriptionId comes in the payload directly
+    // Also try transactionId as arb_subscription_id (for ARB renewal webhooks
+    // where the transaction ID of the captured charge = ARB subscription ID)
+    if (subResult.rows.length === 0) {
+      const arbSubId = String(
+        req.body?.payload?.subscriptionId ||
+        req.body?.subscriptionId ||
+        req.body?.subscription?.id ||
+        req.body?.event?.subscriptionId ||
+        ''
+      ).trim();
+
+      const txAsArb = transactionId ? String(transactionId).trim() : null;
+
+      for (const candidate of [arbSubId, txAsArb]) {
+        if (!candidate) continue;
+        const arbPayloadFallback = await db.query(
+          `SELECT s.*, p.interval as plan_interval, p.amount_cents
+           FROM subscriptions s
+           JOIN plans p ON p.id = s.plan_id
+           WHERE s.arb_subscription_id = $1
+           LIMIT 1`,
+          [candidate]
+        );
+        if (arbPayloadFallback.rows.length > 0) {
+          subResult = arbPayloadFallback;
+          log.warn('Authorize.net webhook: matched by arb_subscription_id', { candidate });
+          break;
         }
       }
     }

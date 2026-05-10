@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 /**
  * postbuild.js — Patches index.html after Next.js static export
- * Adds <title>, <h1> and JSON-LD to the raw HTML so crawlers see them
- * even before React hydrates.
+ * Adds <title>, JSON-LD, and a hidden H1 to the raw HTML so crawlers see them
+ * even before React hydrates. The H1 is injected as hidden text so it survives
+ * the initial SPA load without causing React hydration mismatches.
  */
 const fs = require('fs');
 const path = require('path');
 
 const INDEX = path.join(__dirname, '..', 'out', 'index.html');
 const title = 'AHOY VPN - Privacy-First VPN. Zero Logs, Military-Grade Encryption';
-const description = 'AhoyVPN is a privacy-first VPN with zero logs, military-grade encryption, and no email required. Starting at $5.99/month with up to 10 simultaneous connections.';
-const h1 = 'Your internet. Your rules.';
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
@@ -50,14 +49,14 @@ if (!html.includes('application/ld+json')) {
   html = html.replace('</head>', `${ldJsonScript}</head>`, 1);
 }
 
-// 3. Inject <h1> into the loading spinner's <p> tag — transforms the loading text into the H1
-//    This makes the H1 visible in raw HTML for crawlers
-if (!html.includes('<h1')) {
-  // Replace the loading <p> with an H1
-  html = html.replace(
-    '<p style="color:#8A8A8A;margin-top:1rem;font-size:0.9rem">Loading...</p>',
-    `<h1 style="color:#fff;margin-top:1rem;font-size:1.2rem;font-weight:700">${h1}</h1>`
-  );
+// 3. Inject a hidden H1 into the loading spinner container so crawlers see it in
+//    raw HTML. Position:absolute + off-screen = invisible to humans, visible to bots.
+//    This is NOT inside React's root div — it's in the static HTML fallback content,
+//    so no hydration mismatch is possible.
+if (!html.includes('data-seo-h1')) {
+  const hiddenH1 = '<h1 data-seo-h1 style="position:absolute;left:-9999px;top:-9999px" aria-hidden="true">Your internet. Your rules.</h1>';
+  // Inject after <div id="__next"> so it's inside the React root anchor
+  html = html.replace('<div id="__next">', '<div id="__next">' + hiddenH1, 1);
 }
 
 fs.writeFileSync(INDEX, html, 'utf8');

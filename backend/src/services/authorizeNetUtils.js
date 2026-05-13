@@ -127,13 +127,7 @@ class AuthorizeNetService {
     const response = await fetch(AUTHORIZE_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...requestBody,
-        merchantAuthentication: {
-          name: this.apiLoginId,
-          transactionKey: this.transactionKey
-        }
-      })
+      body: JSON.stringify(requestBody)
     });
 
     const raw = await response.text();
@@ -144,6 +138,10 @@ class AuthorizeNetService {
     try {
       const data = await this._makeRequest({
         ARBGetSubscriptionRequest: {
+          merchantAuthentication: {
+            name: this.apiLoginId,
+            transactionKey: this.transactionKey
+          },
           subscriptionId: String(subscriptionId)
         }
       });
@@ -176,6 +174,10 @@ class AuthorizeNetService {
     try {
       const data = await this._makeRequest({
         getTransactionDetailsRequest: {
+          merchantAuthentication: {
+            name: this.apiLoginId,
+            transactionKey: this.transactionKey
+          },
           transId: String(transactionId)
         }
       });
@@ -563,7 +565,13 @@ class AuthorizeNetService {
   async getArbSubscriptionProfileIds(subscriptionId) {
     try {
       const data = await this._makeRequest({
-        ARBGetSubscriptionRequest: { subscriptionId: String(subscriptionId) }
+        ARBGetSubscriptionRequest: {
+          merchantAuthentication: {
+            name: this.apiLoginId,
+            transactionKey: this.transactionKey
+          },
+          subscriptionId: String(subscriptionId)
+        }
       });
 
       if (data?.messages?.resultCode !== 'Ok') return null;

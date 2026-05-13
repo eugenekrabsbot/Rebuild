@@ -391,6 +391,46 @@ const authorizeNetWebhook = async (req, res) => {
       }
     }
 
+    // ── Card-update webhook: Authorize.net fires this when a customer updates their card
+    // via the hosted profile page (getHostedProfilePageRequest). The payload contains:
+    //   { eventType: 'customerProfileUpdated', payload: { customerProfileId, ... } }
+    // We look up the subscription by customerProfileId and return early — no payment action needed.
+    if (eventType === 'customerProfileUpdated') {
+      const customerProfileId = String(
+        req.body?.payload?.customerProfileId ||
+        req.body?.customerProfileId ||
+        req.body?.profile?.customerProfileId ||
+        ''
+      ).trim();
+
+      if (!customerProfileId) {
+        log.warn('customerProfileUpdated webhook: missing customerProfileId');
+        return res.json({ received: true, signatureValid: true });
+      }
+
+      const profileSubResult = await db.query(
+        `SELECT s.*, p.interval as plan_interval, p.amount_cents
+         FROM subscriptions s
+         JOIN plans p ON p.id = s.plan_id
+         WHERE s.customer_profile_id = $1
+         ORDER BY s.created_at DESC
+         LIMIT 1`,
+        [customerProfileId]
+      );
+
+      if (profileSubResult.rows.length === 0) {
+        log.warn('customerProfileUpdated webhook: subscription not found for profile', { customerProfileId });
+        return res.json({ received: true, signatureValid: true });
+      }
+
+      log.info('customerProfileUpdated: card updated for subscription', {
+        subscriptionId: profileSubResult.rows[0].id,
+        customerProfileId
+      });
+
+      return res.json({ received: true, signatureValid: true });
+    }
+
     let subResult = await db.query(
       `SELECT s.*, p.interval as plan_interval, p.amount_cents
        FROM subscriptions s
@@ -607,8 +647,8 @@ const authorizeNetWebhook = async (req, res) => {
               subscriptionId: String(subscription.id), customerEmail: userEmail,
             });
             if (arbResult?.subscriptionId) {
-              await db.query('UPDATE subscriptions SET arb_subscription_id = $1, customer_profile_id = $2, customer_payment_profile_id = $3, updated_at = NOW() WHERE id = $4', [arbResult.subscriptionId, customerProfileId, customerPaymentProfileId, subscription.id]);
-              log.info('[Webhook] ARB created', { arbSubscriptionId: arbResult.subscriptionId, subscriptionId: subscription.id, customerProfileId, customerPaymentProfileId });
+              await db.query('UPDATE subscriptions SET arb_subscription_id = $1, updated_at = NOW() WHERE id = $2', [arbResult.subscriptionId, subscription.id]);
+              log.info('[Webhook] ARB created', { arbSubscriptionId: arbResult.subscriptionId, subscriptionId: subscription.id });
             } else {
               log.warn('[Webhook] ARB missing subscriptionId', { arbResult });
             }

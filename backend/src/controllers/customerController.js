@@ -110,7 +110,7 @@ const login = async (req, res) => {
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 15 * 60 * 1000
     });
     
@@ -372,10 +372,17 @@ const useRecoveryKit = async (req, res) => {
 };
 
 // Rotate recovery kit endpoint
+const debugRotateKit = async (req, res) => {
+  res.json({ debug: true, user: req.user?.id, cookies: Object.keys(req.cookies || {}), path: req.originalUrl });
+};
 const rotateRecoveryKit = async (req, res) => {
+  console.log('[rotateRecoveryKit] START — body:', JSON.stringify(req.body).slice(0, 100));
+  console.log('[rotateRecoveryKit] user:', req.user);
+  console.log('[rotateRecoveryKit] cookies:', JSON.stringify(Object.keys(req.cookies || {})));
+  console.log('[rotateRecoveryKit] path:', req.originalUrl);
   try {
+    console.log('rotate-kit reached — user:', req.user?.id, 'body has password:', !!req.body.password);
     const { password } = req.body;
-
     if (!password) {
       return res.status(400).json({ error: 'Password required' });
     }
@@ -537,8 +544,7 @@ const getProfile = async (req, res) => {
 const getSubscription = async (req, res) => {
   try {
     const subscriptionResult = await db.query(
-      `SELECT s.*, p.name as plan_name, p.interval, p.amount_cents, p.currency,
-              (s.arb_subscription_id IS NOT NULL) as has_card_subscription
+      `SELECT s.*, p.name as plan_name, p.interval, p.amount_cents, p.currency
        FROM subscriptions s
        JOIN plans p ON s.plan_id = p.id
        WHERE s.user_id = $1
@@ -726,15 +732,6 @@ const createSupportTicket = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
-
-/**
- * GET /api/customer/update-payment
- * Authenticates the customer, looks up their ARB subscription,
- * fetches a hosted profile page token from Authorize.net,
- * and redirects them to Authorize.net to update their card.
- *
- * Authorize.net never stores raw card data on our servers — PCI compliant.
- */
 const updatePaymentRedirect = async (req, res) => {
   try {
     // Get the user's active subscription
@@ -797,6 +794,8 @@ const updatePaymentRedirect = async (req, res) => {
     res.status(500).json({ error: 'Unable to open payment update form. Please try again or contact support.' });
   }
 };
+
+
 
 module.exports = {
   login,

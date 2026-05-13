@@ -607,8 +607,8 @@ const authorizeNetWebhook = async (req, res) => {
               subscriptionId: String(subscription.id), customerEmail: userEmail,
             });
             if (arbResult?.subscriptionId) {
-              await db.query('UPDATE subscriptions SET arb_subscription_id = $1, updated_at = NOW() WHERE id = $2', [arbResult.subscriptionId, subscription.id]);
-              log.info('[Webhook] ARB created', { arbSubscriptionId: arbResult.subscriptionId, subscriptionId: subscription.id });
+              await db.query('UPDATE subscriptions SET arb_subscription_id = $1, customer_profile_id = $2, customer_payment_profile_id = $3, updated_at = NOW() WHERE id = $4', [arbResult.subscriptionId, customerProfileId, customerPaymentProfileId, subscription.id]);
+              log.info('[Webhook] ARB created', { arbSubscriptionId: arbResult.subscriptionId, subscriptionId: subscription.id, customerProfileId, customerPaymentProfileId });
             } else {
               log.warn('[Webhook] ARB missing subscriptionId', { arbResult });
             }

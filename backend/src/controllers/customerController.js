@@ -537,7 +537,8 @@ const getProfile = async (req, res) => {
 const getSubscription = async (req, res) => {
   try {
     const subscriptionResult = await db.query(
-      `SELECT s.*, p.name as plan_name, p.interval, p.amount_cents, p.currency
+      `SELECT s.*, p.name as plan_name, p.interval, p.amount_cents, p.currency,
+              (s.arb_subscription_id IS NOT NULL) as has_card_subscription
        FROM subscriptions s
        JOIN plans p ON s.plan_id = p.id
        WHERE s.user_id = $1
@@ -726,6 +727,77 @@ const createSupportTicket = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/customer/update-payment
+ * Authenticates the customer, looks up their ARB subscription,
+ * fetches a hosted profile page token from Authorize.net,
+ * and redirects them to Authorize.net to update their card.
+ *
+ * Authorize.net never stores raw card data on our servers — PCI compliant.
+ */
+const updatePaymentRedirect = async (req, res) => {
+  try {
+    // Get the user's active subscription
+    const subResult = await db.query(
+      `SELECT s.*, p.name as plan_name
+       FROM subscriptions s
+       JOIN plans p ON p.id = s.plan_id
+       WHERE s.user_id = $1
+         AND s.arb_subscription_id IS NOT NULL
+         AND s.status IN ('active', 'trialing')
+       ORDER BY s.created_at DESC
+       LIMIT 1`,
+      [req.user.id]
+    );
+
+    if (!subResult.rows.length) {
+      return res.status(404).json({
+        error: 'No active card subscription found. You may be on a crypto plan.'
+      });
+    }
+
+    const subscription = subResult.rows[0];
+    const svc = new (require('../services/authorizeNetUtils').AuthorizeNetService)();
+
+    let customerProfileId = subscription.customer_profile_id;
+    let customerPaymentProfileId = subscription.customer_payment_profile_id;
+
+    // If profile IDs aren't stored yet, try to fetch them from Authorize.net via ARB
+    if (!customerProfileId || !customerPaymentProfileId) {
+      if (subscription.arb_subscription_id) {
+        const profileIds = await svc.getArbSubscriptionProfileIds(subscription.arb_subscription_id);
+        if (profileIds) {
+          customerProfileId = profileIds.customerProfileId;
+          customerPaymentProfileId = profileIds.customerPaymentProfileId;
+          // Backfill into DB
+          await db.query(
+            `UPDATE subscriptions
+             SET customer_profile_id = $1,
+                 customer_payment_profile_id = $2,
+                 updated_at = NOW()
+             WHERE id = $3`,
+            [customerProfileId, customerPaymentProfileId, subscription.id]
+          );
+        }
+      }
+      if (!customerProfileId) {
+        return res.status(422).json({
+          error: 'Unable to retrieve your payment profile. Please contact support.'
+        });
+      }
+    }
+
+    const returnUrl = `${req.protocol}://${req.get('host')}/update-payment`;
+    const result = await svc.getHostedProfilePageRequest(customerProfileId, { returnUrl });
+
+    // Redirect to Authorize.net hosted form with the token
+    res.redirect(`${result.formUrl}?token=${encodeURIComponent(result.token)}`);
+  } catch (error) {
+    log.error('updatePaymentRedirect error', { error: error.message, userId: req.user?.id });
+    res.status(500).json({ error: 'Unable to open payment update form. Please try again or contact support.' });
+  }
+};
+
 module.exports = {
   login,
   register,
@@ -740,5 +812,6 @@ module.exports = {
   changePlan,
   deleteAccount,
   getMessages,
-  createSupportTicket
+  createSupportTicket,
+  updatePaymentRedirect
 };

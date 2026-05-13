@@ -499,9 +499,109 @@ class AuthorizeNetService {
       throw error;
     }
   }
-}
 
-module.exports = { getAuthorizeTransactionDetails, cancelArbSubscription, AuthorizeNetService, parseHostedPaymentPageResponse };
+  /**
+   * Get a hosted Accept Customer profile page token.
+   * Used when a customer wants to update their stored card.
+   * POSTs to https://accept.authorize.net/customer/editPayment with the returned token.
+   *
+   * @param {string} customerProfileId - Authorize.net customer profile ID
+   * @param {object} options
+   * @param {string} options.returnUrl - URL to return to after update
+   * @param {string} options.iframeCommunicatorUrl - Optional iframe communicator URL
+   */
+  async getHostedProfilePageRequest(customerProfileId, {
+    returnUrl = 'https://ahoyvpn.net/dashboard',
+    iframeCommunicatorUrl = null
+  } = {}) {
+    const hostedPaymentSettings = [
+      {
+        settingName: 'hostedProfileReturnUrl',
+        settingValue: returnUrl
+      },
+      {
+        settingName: 'hostedProfileReturnUrlText',
+        settingValue: 'Return to AhoyVPN'
+      },
+      {
+        settingName: 'hostedProfilePageBorderVisible',
+        settingValue: 'true'
+      }
+    ];
+
+    if (iframeCommunicatorUrl) {
+      hostedPaymentSettings.push({
+        settingName: 'hostedProfileIFrameCommunicatorUrl',
+        settingValue: iframeCommunicatorUrl
+      });
+    }
+
+    const requestBody = {
+      getHostedProfilePageRequest: {
+        merchantAuthentication: {
+          name: this.apiLoginId,
+          transactionKey: this.transactionKey
+        },
+        customerProfileId: String(customerProfileId),
+        hostedProfileSettings: {
+          setting: hostedPaymentSettings
+        }
+      }
+    };
+
+    try {
+      const response = await fetch(this.getApiEndpoint(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+
+      const raw = await response.text();
+      const data = JSON.parse(raw.replace(/^\uFEFF/, ''));
+
+      if (data?.messages?.resultCode !== 'Ok' || !data?.token) {
+        const msg = data?.messages?.message?.[0]?.text || 'Failed to create hosted profile page token';
+        throw new Error(msg);
+      }
+
+      return {
+        token: data.token,
+        formUrl: this.getHostedFormUrl().replace('/payment/payment', '/customer/editPayment')
+      };
+    } catch (error) {
+      log.error('getHostedProfilePageRequest error', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Get customer profile IDs (customerProfileId + customerPaymentProfileId)
+   * from an existing ARB subscription.
+   * Authorize.net's ARBGetSubscriptionResponse includes the payment profile IDs.
+   */
+  async getArbSubscriptionProfileIds(subscriptionId) {
+    try {
+      const data = await this._makeRequest({
+        ARBGetSubscriptionRequest: {
+          subscriptionId: String(subscriptionId)
+        }
+      });
+
+      if (data?.messages?.resultCode !== 'Ok') {
+        return null;
+      }
+
+      const sub = data?.subscription || {};
+      return {
+        customerProfileId: String(sub?.profile?.customerProfileId || '').trim() || null,
+        customerPaymentProfileId: String(sub?.profile?.customerPaymentProfileId || '').trim() || null
+      };
+    } catch (error) {
+      log.error('getArbSubscriptionProfileIds error', { error: error.message });
+      return null;
+    }
+  }
+} = { getAuthorizeTransactionDetails, cancelArbSubscription, AuthorizeNetService, parseHostedPaymentPageResponse };
 
 /**
  * Parse a hosted payment page callback payload (POST from Authorize.net relay).
@@ -557,5 +657,107 @@ async function parseHostedPaymentPageResponse(payload, relayUrl) {
   } catch (err) {
     log.warn('Failed to parse hosted payment page response', { error: err.message });
     return null;
+  }
+}
+  /**
+   * Get a hosted Accept Customer profile page token.
+   * Used when a customer wants to update their stored card.
+   * POSTs to https://accept.authorize.net/customer/editPayment with the returned token.
+   *
+   * @param {string} customerProfileId - Authorize.net customer profile ID
+   * @param {object} options
+   * @param {string} options.returnUrl - URL to return to after update
+   * @param {string} options.iframeCommunicatorUrl - Optional iframe communicator URL
+   */
+  async getHostedProfilePageRequest(customerProfileId, {
+    returnUrl = 'https://ahoyvpn.net/dashboard',
+    iframeCommunicatorUrl = null
+  } = {}) {
+    const hostedPaymentSettings = [
+      {
+        settingName: 'hostedProfileReturnUrl',
+        settingValue: returnUrl
+      },
+      {
+        settingName: 'hostedProfileReturnUrlText',
+        settingValue: 'Return to AhoyVPN'
+      },
+      {
+        settingName: 'hostedProfilePageBorderVisible',
+        settingValue: 'true'
+      }
+    ];
+
+    if (iframeCommunicatorUrl) {
+      hostedPaymentSettings.push({
+        settingName: 'hostedProfileIFrameCommunicatorUrl',
+        settingValue: iframeCommunicatorUrl
+      });
+    }
+
+    const requestBody = {
+      getHostedProfilePageRequest: {
+        merchantAuthentication: {
+          name: this.apiLoginId,
+          transactionKey: this.transactionKey
+        },
+        customerProfileId: String(customerProfileId),
+        hostedProfileSettings: {
+          setting: hostedPaymentSettings
+        }
+      }
+    };
+
+    try {
+      const response = await fetch(this.getApiEndpoint(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+
+      const raw = await response.text();
+      const data = JSON.parse(raw.replace(/^\uFEFF/, ''));
+
+      if (data?.messages?.resultCode !== 'Ok' || !data?.token) {
+        const msg = data?.messages?.message?.[0]?.text || 'Failed to create hosted profile page token';
+        throw new Error(msg);
+      }
+
+      return {
+        token: data.token,
+        formUrl: this.getHostedFormUrl().replace('/payment/payment', '/customer/editPayment')
+      };
+    } catch (error) {
+      log.error('getHostedProfilePageRequest error', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Get customer profile IDs (customerProfileId + customerPaymentProfileId)
+   * from an existing ARB subscription.
+   * Authorize.net's ARBGetSubscriptionResponse includes the payment profile IDs.
+   */
+  async getArbSubscriptionProfileIds(subscriptionId) {
+    try {
+      const data = await this._makeRequest({
+        ARBGetSubscriptionRequest: {
+          subscriptionId: String(subscriptionId)
+        }
+      });
+
+      if (data?.messages?.resultCode !== 'Ok') {
+        return null;
+      }
+
+      const sub = data?.subscription || {};
+      return {
+        customerProfileId: String(sub?.profile?.customerProfileId || '').trim() || null,
+        customerPaymentProfileId: String(sub?.profile?.customerPaymentProfileId || '').trim() || null
+      };
+    } catch (error) {
+      log.error('getArbSubscriptionProfileIds error', { error: error.message });
+      return null;
+    }
   }
 }

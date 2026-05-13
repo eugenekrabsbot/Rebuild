@@ -20,7 +20,8 @@ router.post('/auth/customer/recovery/rotate-kit', require2FA, customerController
 router.get('/me', customerController.getProfile);
 router.get('/me/subscription', customerController.getSubscription);
 router.post('/me/subscription/cancel', customerController.cancelSubscription);
-router.post('/me/subscription/change-plan', customerController.changePlan);
+router.get('/me/subscription/change-plan', customerController.changePlan);
+router.get('/me/update-payment', customerController.updatePaymentRedirect);
 router.delete('/me', customerController.deleteAccount);
 router.get('/me/messages', customerController.getMessages);
 router.post('/me/support-ticket', customerController.createSupportTicket);

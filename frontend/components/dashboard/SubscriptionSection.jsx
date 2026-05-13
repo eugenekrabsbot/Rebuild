@@ -66,10 +66,19 @@ function SubscriptionSection({ subscription, paymentMethod, onCancel }) {
         <div>
           <p><strong>Plan:</strong> {subscription.planName}</p>
           <p><strong>Status:</strong> {subscription.status}</p>
-          <p><strong>Next Billing:</strong> {subscription.nextBilling}</p>
-          <Button onClick={onCancel} style={styles.cancelButton}>
-            Cancel Subscription
-          </Button>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {subscription.hasCardSubscription && (
+              <Button
+                onClick={() => window.open('/api/customer/me/update-payment', '_self')}
+                style={{ background: '#2E7D32', flex: '1', minWidth: '140px' }}
+              >
+                Update Card
+              </Button>
+            )}
+            <Button onClick={onCancel} style={styles.cancelButton}>
+              Cancel Subscription
+            </Button>
+          </div>
         </div>
       </Card>
     );

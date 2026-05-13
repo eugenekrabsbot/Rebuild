@@ -1,43 +1,37 @@
 /**
- * vpnAuditService.js - 15-Minute Payment → Access Audit
- * =====================================================
+ * vpnAuditService.js - Payment → Access Audit
+ * ===========================================
  *
- * PURPOSE:
- * Every 15 minutes, verify that every customer who paid actually has VPN access.
- * This is the fallback when webhooks fail or ARB billing events don't fire.
- *
- * THE 30-DAY RULE (both payment types):
- *   - Has the customer paid? AND
- *   - Does their VPN expire in less than 30 days?
- *   - If YES to both → extend expiry by 30 days
+ * Runs every 15 minutes. Verifies that every customer who paid has working VPN access.
  *
  * TWO PAYMENT TYPES:
+ *   Plisio (crypto)    — invoice status must be 'completed'
+ *   Authorize.net ARB  — ARB status must be 'active' (suspended/canceled → revoke)
  *
- * AUTHORIZE.NET ARB (card subscriptions):
- *   - ARB status 'active' from getArbSubscription = subscription is in good standing
- *   - We verify payment by checking lastPaymentDate from getArbSubscription.
- *     If a lastPaymentDate is recorded, Authorize.net successfully charged the card.
- *   - suspended/canceled = missed payment → revoke VPN access immediately
+ * ACCESS RULE:
+ *   A paid subscription is entitled to VPN access for at least 30 days from the
+ *   LAST RECORDED PAYMENT EVENT. We track this via last_extended_at on subscriptions.
  *
- * PLISIO (crypto invoices):
- *   - Plisio invoice status 'completed' = blockchain confirmed, customer paid
- *   - Anything else (pending, expired) = no action (waiting for crypto payment)
+ *   - No last_extended_at + never extended before
+ *     → anchor = GREATEST(subscription_created_at, current_period_end - 30 days)
+ *     → if VPN expiry < anchor + 30 days → extend to anchor + 30 days
  *
- * HOW ARB PAYMENT VERIFICATION WORKS (via VPNResellers expiry check):
- *   ARB renewals happen on a fixed schedule. VPNResellers is updated within ~24h of
- *   each successful charge — its expiry date IS the payment confirmation.
+ *   - Has last_extended_at (previously extended by this audit service)
+ *     → if VPN expiry < last_extended_at + 30 days → extend to last_extended_at + 30 days
  *
- *   For an active ARB subscription:
- *     1. Get lastPaymentDate from getArbSubscription (if set → payment succeeded)
- *     2. Get current vpn_resellers expiry for this account
- *     3. If lastPaymentDate is set AND vpn_resellers expiry > NOW + 15 days → paid_up_ok
- *     4. If lastPaymentDate is set but expiry < NOW + 15 days → missed_webhook → extend 30 days
- *     5. If lastPaymentDate is null AND expiry < NOW + 30 days → VPNResellers not yet updated
- *        (billing date hasn't fired yet), don't revoke
+ *   In plain English: "if you've paid and your VPN has fewer than 30 days remaining
+ *   counting from your last payment date, add 30 days to your last payment date."
+ *
+ *   NOT: don't perpetually add 30 days to the current date.
+ *
+ * REVOCATION:
+ *   - Plisio invoice is NOT completed + VPN account exists → revoke (waited too long)
+ *   - ARB status is suspended OR canceled → revoke immediately
+ *   - VPN account is expired in VPNResellers (expire_at < NOW) → revoke locally
  *
  * SCHEDULING:
  *   vpnAuditScheduler.js runs every 15 minutes via crontab.
- *   Each run is idempotent — extending an account that's already fine is harmless.
+ *   Each run is idempotent — setting the same expiry twice is harmless.
  */
 
 'use strict';
@@ -50,18 +44,14 @@ const log = require('../utils/logger');
 const vpnResellersService = new VpnResellersService();
 const authorizeService = new AuthorizeNetService();
 
-// Minimum days a paid subscription must have remaining before we trigger an extend.
-// Business rule: if a customer has paid and their VPN expires in less than 30 days,
-// add 30 more days. This is a safety net for missed webhooks.
+// Business rule: paid customers are entitled to at least this many days of VPN access
+// counting from their last payment event.
 const MINIMUM_DAYS = 30;
+const EXTEND_DAYS = 30; // always extend by this amount when needed
 
-// Days to add when a paid account is below MINIMUM_DAYS threshold.
-const EXTEND_DAYS = 30;
+// ─── Date helpers ─────────────────────────────────────────────────────────────
 
-/**
- * getDaysUntil(dateStr) — days between now and a date string.
- * Returns negative if date is in the past, Infinity if dateStr is null/malformed.
- */
+/** Days between now and a YYYY-MM-DD date string. Negative = past. Infinity = null. */
 function getDaysUntil(dateStr) {
   if (!dateStr) return Infinity;
   const exp = new Date(dateStr);
@@ -69,171 +59,147 @@ function getDaysUntil(dateStr) {
   return Math.round((exp.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
-/**
- * daysFromNow(days) — YYYY-MM-DD string `days` days from now.
- */
+/** YYYY-MM-DD string `days` days from today. */
 function daysFromNow(days) {
   const d = new Date();
   d.setDate(d.getDate() + days);
   return d.toISOString().split('T')[0];
 }
 
-/**
- * extendVpnExpiry(uuid, userId, newExpiry) — set VPN expiry in VPNResellers + local DB.
- * Idempotent: calling setExpiry twice with the same date is a no-op on VPNResellers side.
- */
-async function extendVpnExpiry(uuid, userId, newExpiry, daysLeft) {
-  try {
-    await vpnResellersService.setExpiry(uuid, newExpiry);
-  } catch (err) {
-    log.error('[Audit] Failed to set VPNResellers expiry', { uuid, newExpiry, error: err.message });
-    throw err;
-  }
+// ─── Plisio ──────────────────────────────────────────────────────────────────
 
-  await db.query(
-    `UPDATE vpn_accounts
-     SET expiry_date = $1::timestamptz, status = 'active', updated_at = NOW()
-     WHERE user_id = $2`,
-    [newExpiry, userId]
-  );
-
-  log.info('[Audit] VPN extended', { uuid, userId, newExpiry, daysLeft, extendDays: EXTEND_DAYS });
-}
-
-/**
- * revokeVpnAccess(uuid, userId, reason) — disable VPN in VPNResellers + mark expired locally.
- * Called when we confirm a customer has missed a payment.
- */
-async function revokeVpnAccess(uuid, userId, reason) {
-  if (uuid) {
-    try {
-      await vpnResellersService.disableAccount(uuid);
-    } catch (err) {
-      log.warn('[Audit] Failed to disable VPNResellers account', { uuid, error: err.message });
-    }
-  }
-  await db.query(
-    `UPDATE vpn_accounts SET status = 'expired', updated_at = NOW() WHERE user_id = $1`,
-    [userId]
-  );
-  await db.query(
-    `UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1`,
-    [userId]
-  );
-  log.info('[Audit] VPN revoked', { uuid, userId, reason });
-}
-
-// ─── Payment verification ───────────────────────────────────────────────────
-
-/**
- * isPlisioPaid(invoiceId) — returns true only if Plisio invoice is 'completed'.
- * 'completed' means the blockchain transaction has enough confirmations.
- * Anything else (pending, expired) means the payment is still in transit.
- */
+/** Returns true iff the Plisio invoice has status 'completed' (customer paid). */
 async function isPlisioPaid(invoiceId) {
   if (!invoiceId) return false;
   try {
-    const plisio = require('./plisioService');
-    const info = await plisio.getInvoiceStatus(invoiceId);
-    return info?.status === 'completed';
+    const resp = await fetch(`https://plisio.net/api/v1/invoice/${invoiceId}?api_key=${process.env.PLISIO_API_KEY}`);
+    if (!resp.ok) return false;
+    const data = await resp.json();
+    return data?.data?.status === 'completed';
   } catch (err) {
     log.warn('[Audit] Plisio status check failed', { invoiceId, error: err.message });
     return false;
   }
 }
 
+// ─── Authorize.net ARB ───────────────────────────────────────────────────────
+
 /**
- * getArbPaymentStatus(arbSubscriptionId) — check ARB subscription payment status.
+ * getArbPaymentStatus(arbSubscriptionId)
  *
  * Returns:
- *   'active_ok'       — ARB active, lastPaymentDate is set (payment was charged), VPN has time
- *   'active_no_payment_recent' — ARB active but lastPaymentDate is null/old (billing date hasn't fired yet)
- *   'active_payment_missed'    — ARB active, had a payment date but VPN expiry has drifted (< 30 days)
- *   'suspended'       — Authorize.net suspended (card declined)
- *   'canceled'        — subscription was canceled
- *   'error'           — could not determine (treat as safe; skip extension this cycle)
+ *   'active'           — ARB is active, customer has paid (or billing date hasn't fired yet)
+ *   'suspended'        — ARB suspended (card declined)
+ *   'canceled'         — ARB canceled
+ *   'error'            — could not determine (skip, don't revoke)
+ *
+ * For 'active', the caller must decide whether to extend based on VPN expiry.
+ * We treat 'active' as "paid OR will-pay-soon" — we only revoke for suspended/canceled.
+ * VPN expiry determines whether we need to add more time.
  */
-async function getArbPaymentStatus(arbSubscriptionId, vpnExpiry) {
+async function getArbPaymentStatus(arbSubscriptionId) {
   if (!arbSubscriptionId) return 'error';
-
   try {
     const arb = await authorizeService.getArbSubscription(arbSubscriptionId);
     if (!arb) return 'error';
-
     const status = String(arb.status || '').toLowerCase();
-    const lastPaymentDate = arb.lastPaymentDate || null;
-    const daysUntilVpnExpiry = vpnExpiry ? getDaysUntil(vpnExpiry) : -999;
-
-    // Explicit cancellations — revoke immediately
-    if (status === 'canceled') return 'canceled';
     if (status === 'suspended') return 'suspended';
-
-    // ARB is active — check if Authorize.net has recorded a successful payment
-    if (lastPaymentDate) {
-      // Payment was made and settled. Now check if VPNResellers was updated.
-      // If vpn_expiry > NOW + 15 days → VPNResellers was updated → all good
-      // If vpn_expiry ≤ NOW + 15 days → VPNResellers not updated yet (webhook miss)
-      //   OR the billing date hasn't fired yet this cycle (within 15 days of expiry)
-      //   → extend 30 days as a safety net
-      if (daysUntilVpnExpiry >= 15) {
-        return 'active_ok'; // Paid and VPN time is sufficient
-      }
-      // VPN expiring within 15 days despite recent payment → webhook miss → extend
-      return 'active_payment_missed';
-    }
-
-    // lastPaymentDate is null — ARB is active but no successful charge recorded yet.
-    // This is normal for brand-new subscriptions (first billing date hasn't fired).
-    // Also normal if the billing date is approaching but hasn't fired yet.
-    // In this case, check VPNResellers expiry to decide if we're in danger.
-    if (daysUntilVpnExpiry < 0) {
-      // VPN already expired in VPNResellers but ARB is still active → revoke locally
-      // (VPNResellers disabled the account; ARB will catch up)
-      return 'active_payment_missed';
-    }
-
-    if (daysUntilVpnExpiry < MINIMUM_DAYS) {
-      // VPN expiring within 30 days and no lastPaymentDate on ARB.
-      // This means either: (a) webhook missed, or (b) billing date approaching but not fired.
-      // Extend 30 days as a safety net.
-      return 'active_payment_missed';
-    }
-
-    // ARB active, no payment yet recorded, but VPN has plenty of time (> 30 days).
-    // Don't revoke and don't extend — billing date is likely approaching naturally.
-    return 'active_no_payment_recent';
-
+    if (status === 'canceled') return 'canceled';
+    if (status === 'active') return 'active';
+    // trial, expired, etc. — treat as active for safety (don't revoke)
+    return 'active';
   } catch (err) {
     log.warn('[Audit] ARB status check failed', { arbSubscriptionId, error: err.message });
     return 'error';
   }
 }
 
+// ─── VPN extension / revocation ─────────────────────────────────────────────
+
+/**
+ * extendVpnExpiry(uuid, userId, newExpiry, daysLeft)
+ *
+ * Sets VPNResellers account expiry to newExpiry (YYYY-MM-DD).
+ * Updates local vpn_accounts.expiry_date and subscriptions.current_period_end.
+ * Sets subscriptions.last_extended_at = newExpiry (records the anchor point).
+ */
+async function extendVpnExpiry(uuid, userId, newExpiry, daysLeft) {
+  if (!uuid) return;
+  try {
+    await vpnResellersService.setExpiry(uuid, newExpiry);
+  } catch (err) {
+    log.error('[Audit] Failed to extend VPNResellers expiry', { uuid, newExpiry, error: err.message });
+    // Still update local DB even if VPNResellers call fails
+  }
+
+  await db.query(
+    `UPDATE vpn_accounts SET expiry_date = $1::timestamptz, updated_at = NOW() WHERE vpn_uuid = $2`,
+    [newExpiry, uuid]
+  );
+
+  await db.query(
+    `UPDATE subscriptions
+        SET current_period_end = $1::timestamptz,
+            last_extended_at = $1::timestamptz,
+            updated_at = NOW()
+        WHERE user_id = $2 AND status IN ('active', 'trialing')`,
+    [newExpiry, userId]
+  );
+
+  log.info('[Audit] VPN extended', { uuid, userId, newExpiry, daysLeft: Math.round(daysLeft) });
+}
+
+/**
+ * revokeVpnAccess(uuid, userId, reason) — deactivate in VPNResellers + mark locally.
+ */
+async function revokeVpnAccess(uuid, userId, reason) {
+  if (!uuid) return;
+  try {
+    await vpnResellersService.deactivateAccount({ account_id: uuid });
+  } catch (err) {
+    log.warn('[Audit] Failed to disable VPNResellers account', { uuid, error: err.message });
+  }
+
+  await db.query(
+    `UPDATE vpn_accounts SET status = 'suspended', updated_at = NOW() WHERE user_id = $1`,
+    [userId]
+  );
+
+  await db.query(
+    `UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1`,
+    [userId]
+  );
+
+  log.info('[Audit] VPN revoked', { uuid, userId, reason });
+}
+
 // ─── Core audit ─────────────────────────────────────────────────────────────
 
 /**
- * runOnce() — main entry point. Call every 15 minutes via cron.
+ * runOnce() — main entry point. Called every 15 minutes by vpnAuditScheduler.js.
  *
  * For every active/trialing subscription:
- *   1. Verify payment went through (Plisio completed OR ARB active with payment history)
- *   2. If paid and VPN expires < 30 days → extend by 30 days
- *   3. If payment failed (ARB suspended/canceled) → revoke VPN
+ *   1. Verify payment (Plisio completed OR ARB active/suspended/canceled)
+ *   2. If payment failed  → revoke VPN
+ *   3. If payment success → ensure VPN has ≥ 30 days from last payment anchor
  */
 async function runOnce() {
   const { rows: subs } = await db.query(`
     SELECT
-      s.id                      AS subscription_id,
+      s.id                          AS subscription_id,
       s.user_id,
-      s.status                  AS sub_status,
+      s.status                      AS sub_status,
       s.plisio_invoice_id,
       s.arb_subscription_id,
       s.current_period_end,
-      p.interval                AS plan_interval,
+      s.last_extended_at,
+      s.created_at                  AS sub_created_at,
+      p.interval                    AS plan_interval,
       p.amount_cents,
-      va.id                     AS vpn_account_id,
+      va.id                         AS vpn_account_id,
       va.vpn_uuid,
       va.vpn_username,
-      va.expiry_date
+      va.expiry_date                AS db_vpn_expiry
     FROM subscriptions s
     JOIN plans p ON p.id = s.plan_id
     LEFT JOIN vpn_accounts va ON va.user_id = s.user_id AND va.status = 'active'
@@ -253,6 +219,8 @@ async function runOnce() {
       });
     }
   }
+
+  log.info('[Audit] Audit run complete');
 }
 
 /**
@@ -261,43 +229,43 @@ async function runOnce() {
  * @param {object} sub — joined row from runOnce()
  */
 async function auditOne(sub) {
-  const { subscription_id: subId, user_id: userId, plan_interval: interval,
+  const { subscription_id: subId, user_id: userId,
+          plan_interval: interval,
           vpn_uuid: vpnUuid, vpn_username: vpnUsername,
+          vpn_account_id: vpnAccountId,
           plisio_invoice_id: plisioInvoiceId,
-          arb_subscription_id: arbSubId } = sub;
+          arb_subscription_id: arbSubId,
+          sub_created_at: subCreatedAt,
+          last_extended_at: lastExtendedAt } = sub;
 
-  log.info('[Audit] Auditing', {
-    subId, userId, vpnUsername, plisioInvoiceId, arbSubId
-  });
+  log.info('[Audit] Auditing', { subId, userId, vpnUsername, plisioInvoiceId, arbSubId });
 
-  // ── Step 1: Verify payment status ─────────────────────────────────────────
+  // ── Step 1: Determine if customer has paid ──────────────────────────────
 
-  // PLISIO path: check if invoice is completed
+  // PLISIO path: invoice must be completed
   if (plisioInvoiceId) {
     const paid = await isPlisioPaid(plisioInvoiceId);
     if (!paid) {
-      log.info('[Audit] Plisio invoice not completed yet', { subId, invoiceId: plisioInvoiceId });
+      // Invoice not completed yet — customer hasn't paid.
+      // If they have a VPN account, revoke it (crypto invoice expired).
+      if (vpnUuid) {
+        log.info('[Audit] Plisio invoice not completed, revoking VPN', { subId, invoiceId: plisioInvoiceId });
+        await revokeVpnAccess(vpnUuid, userId, 'Plisio invoice not completed');
+        await db.query(
+          `UPDATE subscriptions SET status = 'canceled', updated_at = NOW() WHERE id = $1`,
+          [subId]
+        );
+      }
       return;
     }
-    // Paid: fall through to access check
+    // Paid → fall through to access check.
   }
 
-  // ARB path: check subscription payment status
+  // ARB path: check subscription status
   if (arbSubId) {
-    // Fetch VPNResellers expiry for use in ARB status check
-    let vpnExpiry = null;
-    if (vpnUuid) {
-      try {
-        const acct = await vpnResellersService.getAccount(vpnUuid);
-        vpnExpiry = acct?.data?.expire_at || null;
-      } catch (err) {
-        log.warn('[Audit] Could not fetch VPNResellers expiry', { vpnUuid, error: err.message });
-      }
-    }
+    const arbStatus = await getArbPaymentStatus(arbSubId);
 
-    const arbStatus = await getArbPaymentStatus(arbSubId, vpnExpiry);
-
-    if (arbStatus === 'suspended' || arbStatus === 'canceled') {
+    if (arbStatus === 'canceled' || arbStatus === 'suspended') {
       await revokeVpnAccess(vpnUuid, userId, `ARB ${arbStatus}`);
       await db.query(
         `UPDATE subscriptions SET status = 'canceled', updated_at = NOW() WHERE id = $1`,
@@ -308,69 +276,97 @@ async function auditOne(sub) {
     }
 
     if (arbStatus === 'error') {
+      // Can't determine ARB status — skip, don't revoke.
       log.info('[Audit] ARB status unknown, skipping', { subId, arbSubId });
       return;
     }
 
-    if (arbStatus === 'active_no_payment_recent') {
-      // ARB active, no lastPaymentDate, VPN still has > 30 days — safe to wait
-      log.info('[Audit] ARB active, awaiting first payment billing date', { subId, arbSubId });
-      return;
-    }
-
-    if (arbStatus === 'active_payment_missed') {
-      // ARB active but VPN has < 30 days (webhook miss or billing date approaching)
-      // Extend 30 days. VPNResellers will be updated.
-      if (vpnUuid) {
-        const newExpiry = daysFromNow(EXTEND_DAYS);
-        await extendVpnExpiry(vpnUuid, userId, newExpiry, getDaysUntil(vpnExpiry));
-        await db.query(
-          `UPDATE subscriptions SET current_period_end = $1::timestamptz, updated_at = NOW() WHERE id = $2`,
-          [newExpiry, subId]
-        );
-      }
-      return;
-    }
-
-    // arbStatus === 'active_ok': paid and VPN has plenty of time, fall through to expiry check
+    // ARB is active → paid (or billing date approaching naturally).
+    // Fall through to VPN expiry check.
   }
 
-  // ── Step 2: Access check — does the VPN account have enough time? ────────
+  // No payment method linked — skip (shouldn't happen in practice).
+  if (!plisioInvoiceId && !arbSubId) {
+    log.info('[Audit] No payment method linked, skipping', { subId });
+    return;
+  }
 
-  if (!vpnUuid) {
+  // ── Step 2: VPN access check ───────────────────────────────────────────
+
+  if (!vpnUuid || !vpnAccountId) {
     log.warn('[Audit] No VPN account for active subscription', { subId, userId });
     return;
   }
 
-  // Fetch authoritative expiry from VPNResellers (source of truth)
+  // Fetch authoritative VPN expiry from VPNResellers (source of truth).
   let vpnExpiry = null;
   try {
     const acct = await vpnResellersService.getAccount(vpnUuid);
     vpnExpiry = acct?.data?.expire_at || null;
   } catch (err) {
-    log.warn('[Audit] Could not fetch VPNResellers expiry', { vpnUuid, error: err.message });
-    vpnExpiry = sub.expiry_date
-      ? new Date(sub.expiry_date).toISOString().split('T')[0]
+    log.warn('[Audit] Could not fetch VPNResellers expiry, using DB fallback', {
+      vpnUuid, error: err.message
+    });
+    vpnExpiry = sub.db_vpn_expiry
+      ? new Date(sub.db_vpn_expiry).toISOString().split('T')[0]
       : null;
   }
 
   const daysLeft = vpnExpiry ? getDaysUntil(vpnExpiry) : -999;
 
-  log.info('[Audit] VPN status', {
-    subId, vpnUuid, vpnUsername, vpnExpiry,
-    daysLeft: Math.round(daysLeft), thresholdDays: MINIMUM_DAYS
-  });
-
-  // VPN is already expired in VPNResellers → revoke locally
+  // VPN already expired in VPNResellers → revoke locally
   if (daysLeft < 0) {
-    await revokeVpnAccess(vpnUuid, userId, `VPN expired in VPNResellers (${Math.round(daysLeft)} days ago)`);
+    await revokeVpnAccess(vpnUuid, userId, `VPN expired (${Math.round(daysLeft)} days ago)`);
     return;
   }
 
-  // Paid but expiring within MINIMUM_DAYS (30) days → extend by EXTEND_DAYS (30 days)
-  if (daysLeft < MINIMUM_DAYS) {
-    const newExpiry = daysFromNow(EXTEND_DAYS);
-    await extendVpnExpiry(vpnUuid, userId, newExpiry, Math.round(daysLeft));
+  // ── Step 3: Compute last payment anchor and required expiry ────────────
+
+  // The "last payment anchor" is the date of the last successful payment event.
+  // We store this as last_extended_at every time WE extend the account.
+  //
+  // first extension (no last_extended_at yet):
+  //   anchor = the earlier of (sub_created_at, current_period_end - 30 days)
+  //   This prevents a newly-created subscription from getting an immediate 30-day
+  //   extension just because the billing period happens to be < 30 days away.
+  //
+  // subsequent extensions (has last_extended_at):
+  //   anchor = last_extended_at
+  //   We extend to last_extended_at + 30 days, not NOW + 30 days.
+
+  let lastPaymentAnchor;
+  if (lastExtendedAt) {
+    lastPaymentAnchor = new Date(lastExtendedAt);
+  } else {
+    // First time extension for this subscription.
+    // Use sub_created_at as the payment date (approximation).
+    // Or current_period_end - 30 days, whichever is earlier.
+    const created = new Date(subCreatedAt);
+    const periodEnd = sub.current_period_end ? new Date(sub.current_period_end) : null;
+    const thirtyBeforePeriodEnd = periodEnd
+      ? new Date(periodEnd.getTime() - 30 * 86400000)
+      : created;
+    // Anchor = earlier of created and thirtyBeforePeriodEnd
+    lastPaymentAnchor = created < thirtyBeforePeriodEnd ? created : thirtyBeforePeriodEnd;
+  }
+
+  const requiredExpiry = new Date(lastPaymentAnchor.getTime() + MINIMUM_DAYS * 86400000);
+  const requiredExpiryStr = requiredExpiry.toISOString().split('T')[0];
+
+  log.info('[Audit] VPN access check', {
+    subId, vpnUuid, vpnExpiry,
+    daysLeft: Math.round(daysLeft),
+    lastExtendedAt: lastExtendedAt || '(none)',
+    lastPaymentAnchor: lastPaymentAnchor.toISOString(),
+    requiredExpiry: requiredExpiryStr,
+    needsExtension: vpnExpiry < requiredExpiryStr
+  });
+
+  // VPN expiry is before the required expiry (i.e., < last payment anchor + 30 days) → extend.
+  if (vpnExpiry < requiredExpiryStr) {
+    const newExpiry = requiredExpiryStr;
+    await extendVpnExpiry(vpnUuid, userId, newExpiry, daysLeft);
+    // Also update local DB period_end to match
     await db.query(
       `UPDATE subscriptions SET current_period_end = $1::timestamptz, updated_at = NOW() WHERE id = $2`,
       [newExpiry, subId]

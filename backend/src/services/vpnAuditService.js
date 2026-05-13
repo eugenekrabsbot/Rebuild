@@ -72,7 +72,8 @@ function daysFromNow(days) {
 async function isPlisioPaid(invoiceId) {
   if (!invoiceId) return false;
   try {
-    const resp = await fetch(`https://plisio.net/api/v1/invoice/${invoiceId}?api_key=${process.env.PLISIO_API_KEY}`);
+    // Plisio API v1 uses https://api.plisio.net/api/v1/invoices/{id}
+    const resp = await fetch(`https://api.plisio.net/api/v1/invoices/${invoiceId}?api_key=${process.env.PLISIO_API_KEY}`);
     if (!resp.ok) return false;
     const data = await resp.json();
     return data?.data?.status === 'completed';

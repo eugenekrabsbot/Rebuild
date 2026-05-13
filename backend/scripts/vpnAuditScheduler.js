@@ -8,6 +8,8 @@
 
 'use strict';
 
+require('dotenv').config();
+
 const log = require('../src/utils/logger');
 
 async function main() {

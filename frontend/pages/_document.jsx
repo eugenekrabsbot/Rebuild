@@ -33,9 +33,10 @@ export default function Document() {
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
-        {/* Fonts (optional - if using external fonts) */}
+        {/* Google Fonts — loaded properly to avoid render-blocking @import chain */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
 
         {/* Note: Per-page <Head> in next/head defines each page's <title>.
             Defining a default <title> here would cause ESLint's

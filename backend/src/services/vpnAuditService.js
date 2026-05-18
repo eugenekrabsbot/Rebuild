@@ -180,13 +180,13 @@ async function extendVpn(uuid, userId, newExpiry, daysLeft, paymentDate) {
 async function revokeVpn(uuid, userId, reason) {
   if (!uuid) return;
   try {
-    await vpnResellersService.deactivateAccount({ account_id: uuid });
+    await vpnResellersService.disableAccount({ account_id: uuid });
   } catch (err) {
     log.warn('[Audit] deactivateAccount failed', { uuid, error: err.message });
   }
 
   await db.query(
-    `UPDATE vpn_accounts SET status = 'suspended', updated_at = NOW() WHERE user_id = $1`,
+    `UPDATE vpn_accounts SET status = 'disabled', updated_at = NOW() WHERE user_id = $1`,
     [userId]
   );
   await db.query(

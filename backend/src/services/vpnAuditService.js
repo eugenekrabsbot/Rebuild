@@ -393,12 +393,12 @@ async function auditOne(sub) {
     }
 
     // ── Check access: does VPN have at least intervalDays from last payment? ──
-    // If no last_extended_at (first extension never happened), skip —
-    // we're waiting for the ARB charge to fire and VPNResellers to update.
-    // The customer has whatever access VPNResellers granted initially.
+    // ARB is active but has no payment anchor yet.
+    // Customer has whatever access VPNResellers granted — we watch for the first
+    // charge to fire (aheadByDays detection above) or flag it if it should have happened.
     if (!lastExtendedAt) {
-      log.info('[Audit] ARB active, no last_extended_at yet, skipping (awaiting first charge)', {
-        subId, arbSubId, vpnExpireAt
+      log.warn('[Audit] ARB active, no payment anchor (last_extended_at=null) — awaiting first charge detection', {
+        subId, arbSubId, vpnExpireAt, daysLeft: Math.round(daysLeft), intervalDays
       });
       return;
     }

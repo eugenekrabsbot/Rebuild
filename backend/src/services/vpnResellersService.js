@@ -21,9 +21,19 @@ const paymentConfig = require('../config/paymentConfig');
 
 class VpnResellersService {
   constructor() {
-    this.apiToken = paymentConfig.vpnResellers.apiToken;
+    // VPN_RESELLERS_API_TOKEN is loaded from .env at module initialization time.
+    // dotenv.config({path}) must run BEFORE this module is imported — index.js does
+    // this at the top, but since paymentConfig reads process.env at import time (before
+    // dotenv runs), we re-read the token here at access time as a safety net.
+    this._apiToken = paymentConfig.vpnResellers.apiToken;
     this.baseUrl = paymentConfig.vpnResellers.apiUrl;
     this.endpoints = paymentConfig.vpnResellers.endpoints;
+  }
+
+  _getToken() {
+    // Re-read from env each call so the service works regardless of whether
+    // dotenv.config() ran before or after this module was imported.
+    return this._apiToken || process.env.VPN_RESELLERS_API_TOKEN || paymentConfig.vpnResellers.apiToken;
   }
 
   /**
@@ -47,7 +57,7 @@ class VpnResellersService {
 
     const response = await fetch(url, {
       headers: {
-        Authorization: `Bearer ${this.apiToken}`,
+        Authorization: `Bearer ${this._getToken()}`,
         'Content-Type': 'application/json',
         Accept: 'application/json',
         ...options.headers

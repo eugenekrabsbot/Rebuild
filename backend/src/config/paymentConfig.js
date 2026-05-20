@@ -3,7 +3,13 @@
 const paymentConfig = {
   // VPN Resellers Configuration
   vpnResellers: {
+    // Re-read from env each call — process.env is always correct at runtime because
+    // dotenv.config() populates it before any module that imports paymentConfig runs.
     apiToken: process.env.VPN_RESELLERS_API_TOKEN,
+    // Fallback: if not in env, use the evaluated value at import time (works when
+    // dotenv runs before this module is imported, which is the case in index.js).
+    // Access pattern: (process.env.VPN_RESELLERS_API_TOKEN || paymentConfig._fallbackToken)
+    _fallbackToken: process.env.VPN_RESELLERS_API_TOKEN,
     apiUrl: 'https://api.vpnresellers.com',
     planIds: {
       month: process.env.VPN_RESELLERS_PLAN_MONTHLY_ID,

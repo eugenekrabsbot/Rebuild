@@ -164,12 +164,14 @@ export const api = {
   },
 
   // ===== ADMIN AFFILIATE MANAGEMENT =====
-  createAffiliate: async (data) => postAdmin('/auth/ahoyman/affiliates', data),
+  createAffiliate: async (username, password) => postAdmin('/auth/ahoyman/affiliates', { username, password }),
   resetAffiliatePassword: async (id, password) => postAdmin(`/auth/ahoyman/affiliates/${id}/reset-password`, { password }),
   getAffiliate: async (id) => getAdmin(`/auth/ahoyman/affiliates/${id}`),
   suspendAffiliate: async (id) => apiClient.put(`/auth/ahoyman/affiliates/${id}/suspend`),
   reactivateAffiliate: async (id) => apiClient.put(`/auth/ahoyman/affiliates/${id}/reactivate`),
   regenerateAffiliateKit: async (id) => apiClient.post(`/auth/ahoyman/affiliates/${id}/regenerate-kit`),
+  deleteAffiliate: async (id) => apiClient.delete(`/auth/ahoyman/affiliates/${id}`),
+  archiveAffiliate: async (id) => apiClient.put(`/auth/ahoyman/affiliates/${id}/archive`),
   getAdminReferrals: async (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return apiClient.get(`/auth/ahoyman/referrals${qs ? '?' + qs : ''}`);

@@ -530,9 +530,27 @@ const getProfile = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const row = userResult.rows[0];
+
+    // Get external access key if subscription is active
+    const { getActiveKey } = require('../services/accessKeyService');
+    const activeKey = await getActiveKey(req.user.id);
+
+    // Get subscription status for the key display
+    const subResult = await db.query(
+      `SELECT status FROM subscriptions WHERE user_id = $1 AND status = 'active' LIMIT 1`,
+      [req.user.id]
+    );
+    const subscriptionActive = subResult.rows.length > 0;
+
     res.json({
       success: true,
-      data: userResult.rows[0]
+      data: {
+        ...row,
+        subscriptionActive,
+        externalAccessKey: subscriptionActive ? activeKey?.access_key : null,
+        externalAccessKeyRotatedAt: subscriptionActive ? activeKey?.rotated_at : null,
+      }
     });
   } catch (error) {
     log.error('Get profile error', { error: error.message });
@@ -613,6 +631,10 @@ const cancelSubscription = async (req, res) => {
        WHERE id = $1`,
       [subscription.id]
     );
+
+    // Revoke external access key
+    const { revokeAccessKey } = require('../services/accessKeyService');
+    await revokeAccessKey(req.user.id);
 
     res.json({
       success: true,

@@ -306,6 +306,7 @@ const authorizeNetWebhook = async (req, res) => {
       ''
     ).trim();
     let amountRaw = payload.authAmount || payload.amount || payload.auth_amount || payload?.authAmount || null;
+    const eventType = req.body?.eventType || req.body?.event_type || req.body?.payload?.eventType || null;
 
     const isValid = WebhookVerifier.verifyAuthorizeNet(req);
 
@@ -369,7 +370,6 @@ const authorizeNetWebhook = async (req, res) => {
       // Special handling for authcapture.created: responseCode may be empty
       // in the webhook payload even when payment was authorized.
       // Try to extract transaction ID from transactionResponse and look up details.
-      const eventType = req.body?.eventType || req.body?.event_type || null;
       const webhookTransId = String(
         payload?.transactionResponse?.transId ||
         payload?.transactionResponse?.trans_id ||
@@ -581,6 +581,14 @@ const authorizeNetWebhook = async (req, res) => {
       );
 
       await db.query('UPDATE users SET is_active = true, updated_at = NOW() WHERE id = $1', [subscription.user_id]);
+
+      // Provision external access key for ahoyvpn.com
+      try {
+        const { provisionAccessKey } = require('../services/accessKeyService');
+        await provisionAccessKey(subscription.user_id);
+      } catch (keyErr) {
+        log.error('[Webhook] Failed to provision external access key', { userId: subscription.user_id, error: keyErr.message });
+      }
 
       await db.query('COMMIT');
 

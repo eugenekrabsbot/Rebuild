@@ -237,6 +237,31 @@ const rotateCustomerRecoveryKit = async (req, res) => {
   }
 };
 
+// Rotate external access key for ahoyvpn.com
+const rotateExternalAccessKey = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rotateKey } = require('../services/accessKeyService');
+    
+    const newKey = await rotateKey(parseInt(id, 10));
+    
+    await db.query(
+      `INSERT INTO audit_events (actor_type, actor_id, action, target_type, target_id, created_at)
+       VALUES ('admin', $1, 'rotate_external_access_key', 'customer', $2, NOW())`,
+      [req.user.id, id]
+    );
+    
+    res.json({
+      success: true,
+      data: { accessKey: newKey },
+      message: 'Access key rotated successfully'
+    });
+  } catch (error) {
+    log.error('Rotate external access key error', { error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 // Send message to customer endpoint
 const sendMessageToCustomer = async (req, res) => {
   try {
@@ -931,6 +956,7 @@ module.exports = {
   getCustomer,
   resetCustomerPassword,
   rotateCustomerRecoveryKit,
+  rotateExternalAccessKey,
   sendMessageToCustomer,
   deactivateCustomer,
   deleteCustomer,

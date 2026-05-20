@@ -135,6 +135,15 @@ async function processPlisioPaymentAsync(invoice_id, tx_id, amount, currency) {
     // Create VPN account via VPN Resellers
     const vpnAccount = await createVpnAccount(userId, subscription.account_number, planInterval);
 
+    // Provision external access key for ahoyvpn.com
+    try {
+      const { provisionAccessKey } = require('./accessKeyService');
+      await provisionAccessKey(userId);
+    } catch (keyErr) {
+      log.error('Failed to provision external access key', { userId, error: keyErr.message });
+      // Non-fatal: don't fail payment processing over this
+    }
+
     // Send welcome email with VPN credentials (if email exists)
     const userResult = await db.query('SELECT email FROM users WHERE id = $1', [userId]);
     const userEmail = userResult.rows[0]?.email;
@@ -250,6 +259,14 @@ async function processPaymentsCloudPaymentAsync(data) {
 
     // Create VPN account via VPNResellers
     const vpnAccount = await createVpnAccount(userId, account_number, plan_key);
+
+    // Provision external access key for ahoyvpn.com
+    try {
+      const { provisionAccessKey } = require('./accessKeyService');
+      await provisionAccessKey(userId);
+    } catch (keyErr) {
+      log.error('Failed to provision external access key', { userId, error: keyErr.message });
+    }
 
     // Send welcome email with VPN credentials (if email exists)
     const userResult2 = await db.query('SELECT email FROM users WHERE id = $1', [userId]);

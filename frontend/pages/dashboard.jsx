@@ -96,6 +96,8 @@ export default function Dashboard() {
         subscription={subscription}
         paymentMethod={paymentMethod}
         onCancel={() => setShowCancelModal(true)}
+        externalAccessKey={profile?.externalAccessKey}
+        subscriptionActive={profile?.subscriptionActive}
       />
 
       {/* Account Settings — password change, recovery kit, data export, delete */}

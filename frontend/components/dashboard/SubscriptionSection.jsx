@@ -50,7 +50,7 @@ const PLANS = [
   },
 ];
 
-function SubscriptionSection({ subscription, paymentMethod, onCancel }) {
+function SubscriptionSection({ subscription, paymentMethod, onCancel, externalAccessKey, subscriptionActive }) {
   const router = useRouter();
   const [selectedPlan, setSelectedPlan] = useState(null);
 
@@ -66,7 +66,15 @@ function SubscriptionSection({ subscription, paymentMethod, onCancel }) {
         <div>
           <p><strong>Plan:</strong> {subscription.planName}</p>
           <p><strong>Status:</strong> {subscription.status}</p>
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {/* AhoyRipper — exclusive access code for ahoyvpn.com */}
+        {subscriptionActive && externalAccessKey && (
+          <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#1a2a1a', borderRadius: '8px', border: '1px solid #2E7D32' }}>
+            <p style={{ fontSize: '0.75rem', color: '#6b9e6b', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AhoyRipper — ahoyvpn.com access</p>
+            <code style={{ fontSize: '0.95rem', color: '#4ade80', fontFamily: 'monospace', letterSpacing: '0.05em' }}>{externalAccessKey}</code>
+            <p style={{ fontSize: '0.7rem', color: '#4a6a4a', marginTop: '0.4rem' }}>Use this code at ahoyvpn.com to unlock exclusive content</p>
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             {subscription.hasCardSubscription && (
               <Button
                 onClick={() => window.open('/api/customer/me/update-payment', '_self')}

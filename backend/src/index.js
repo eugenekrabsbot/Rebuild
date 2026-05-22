@@ -255,4 +255,13 @@ if (process.env.DISABLE_PLISIO_POLLING !== 'true') {
   }, 45 * 1000);
 }
 
+// Payment event processor — retry queue for all payment-adjacent operations
+try {
+  const { start: startPaymentProcessor } = require('./services/paymentEventProcessor');
+  startPaymentProcessor();
+  log.info('[index] paymentEventProcessor started (every 5 minutes)');
+} catch (err) {
+  log.error('[index] Failed to start paymentEventProcessor', { error: err.message });
+}
+
 module.exports = server;

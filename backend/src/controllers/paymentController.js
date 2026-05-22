@@ -10,6 +10,7 @@ const paymentConfig = require('../config/paymentConfig');
 const log = require('../utils/logger');
 
 const { createVpnAccount } = require('../services/userService');
+const { recordEvent } = require('../services/paymentEventService');
 
 const vpnAccountScheduler = require('../services/vpnAccountScheduler');
 
@@ -1444,17 +1445,51 @@ const authorizeRelayResponse = async (req, res) => {
 
 
 
-    await createVpnAccount(subscription.user_id, subscription.account_number, subscription.plan_interval);
+    // ── Event-driven provisioning with inline fallback ─────────────────────────
+    // We record events for every operation. If inline succeeds, the processor skips them.
+    // If inline fails, the processor will retry them asynchronously.
+    //
+    // External IDs for card payments: transactionId is primary, invoiceNumber fallback
+    const vpnExternalId = transactionId || invoiceNumber;
 
+    // 1. VPN account creation
+    try {
+      const vpnResult = await createVpnAccount(subscription.user_id, subscription.account_number, subscription.plan_interval);
+      await recordEvent(vpnExternalId, 'authorize', 'provision.vpn', {
+        user_id: subscription.user_id,
+        account_number: subscription.account_number,
+        plan_interval: subscription.plan_interval,
+        vpn_username: vpnResult?.username,
+        vpn_password: vpnResult?.password,
+      }, { status: 'completed', accountNumber: subscription.account_number });
+    } catch (vpnErr) {
+      log.error('[authorizeRelayResponse] VPN account creation failed', { userId: subscription.user_id, error: vpnErr.message });
+      await recordEvent(vpnExternalId, 'authorize', 'provision.vpn', {
+        user_id: subscription.user_id,
+        account_number: subscription.account_number,
+        plan_interval: subscription.plan_interval,
+      }, { status: 'pending', accountNumber: subscription.account_number, errorMessage: vpnErr.message });
+    }
 
-
+    // 2. Activate user
     await db.query(
-
       'UPDATE users SET is_active = true, updated_at = NOW() WHERE id = $1',
-
       [subscription.user_id]
-
     );
+
+    // 3. AhoyRipper access key
+    try {
+      const { provisionAccessKey } = require('../services/accessKeyService');
+      await provisionAccessKey(subscription.user_id);
+      await recordEvent(vpnExternalId, 'authorize', 'provision.key', {
+        user_id: subscription.user_id,
+      }, { status: 'completed', accountNumber: subscription.account_number });
+    } catch (keyErr) {
+      log.error('[authorizeRelayResponse] Failed to provision access key', { userId: subscription.user_id, error: keyErr.message });
+      await recordEvent(vpnExternalId, 'authorize', 'provision.key', {
+        user_id: subscription.user_id,
+      }, { status: 'pending', accountNumber: subscription.account_number, errorMessage: keyErr.message });
+    }
 
 
 

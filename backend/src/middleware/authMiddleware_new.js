@@ -33,6 +33,7 @@ const PUBLIC_PATHS = [
   '/auth/customer/recovery',
   '/auth/login',
   '/auth/register',
+  '/api/csrf',
 ];
 
 const protect = async (req, res, next) => {

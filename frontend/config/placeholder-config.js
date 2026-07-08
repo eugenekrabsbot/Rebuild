@@ -39,25 +39,9 @@ export const FRONTEND_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://aho
 export const PLISIO_CHECKOUT_URL = process.env.PLISIO_CHECKOUT_URL || 'https://checkout.plisio.net';
 
 /**
- * PaymentsCloud (Fiat/Credit Card payments) checkout URL
- * Used in: _app.jsx (CSP header), pages/checkout.jsx (payment method docs),
- *          pages/privacy.jsx, pages/faq.jsx
- * WARNING: This is a third-party processor URL - verify it's current with PaymentsCloud docs
+ * Legacy card processor placeholders.
+ * Kept only if we ever need to compare against old integrations during cleanup.
  */
-export const PAYMENTSCLOUD_CHECKOUT_URL = process.env.PAYMENTSCLOUD_CHECKOUT_URL || 'https://checkout.paymentscloud.com';
-
-/**
- * Authorize.net hosted payment form URL (production)
- * Used in: pages/authorize-redirect.jsx (redirect fallback), _app.jsx (CSP form-action)
- * WARNING: Should come from backend payment initiation response, not hardcoded
- */
-export const AUTHORIZE_NET_URL = process.env.AUTHORIZE_NET_URL || 'https://accept.authorize.net/payment/payment';
-
-/**
- * Authorize.net test environment URL
- * Used in: _app.jsx (CSP form-action for test mode)
- */
-export const AUTHORIZE_NET_TEST_URL = process.env.AUTHORIZE_NET_TEST_URL || 'https://test.authorize.net/payment/payment';
 
 // =============================================================================
 // ROUTE CONSTANTS
@@ -166,7 +150,7 @@ export const DEFAULT_TAX_RATE = 0.08;
  */
 export const PAYMENT_PROVIDERS = {
   CRYPTO: 'Plisio',
-  CARD: 'PaymentsCloud',
+  LEGACY_CARD: 'retired',
 };
 
 /**

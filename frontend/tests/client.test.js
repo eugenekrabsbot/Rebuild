@@ -214,10 +214,10 @@ describe('deleteAffiliateLink', () => {
 describe('initiateCheckout', () => {
   it('sends only planId + paymentMethod when no optional args', async () => {
     mock.post.mockResolvedValueOnce({ data: {} });
-    await api.initiateCheckout('plan_gold', 'card');
+    await api.initiateCheckout('plan_gold', 'crypto');
     expect(mock.post).toHaveBeenCalledWith('/payment/checkout', {
       planId: 'plan_gold',
-      paymentMethod: 'card',
+      paymentMethod: 'crypto',
     });
   });
 

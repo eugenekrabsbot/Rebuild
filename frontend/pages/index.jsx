@@ -55,7 +55,7 @@ const PLANS = [
 
 const STEPS = [
   { step: '01', title: 'Register', description: 'Create an account with a numeric username and password. No email required.' },
-  { step: '02', title: 'Subscribe', description: 'Choose a plan and pay securely via card or cryptocurrency.' },
+  { step: '02', title: 'Subscribe', description: 'Choose a plan and pay securely with cryptocurrency.' },
   { step: '03', title: 'Connect', description: 'Download the client and connect to any of our global server locations.' },
 ];
 
@@ -96,7 +96,7 @@ function FAQHomeItem({ question, answer }) {
 const HOME_FAQS = [
   { q: 'How do I create an account?', a: 'Simply choose a plan on our homepage and proceed to checkout. After payment confirmation, we generate a numeric username and password for you. No email address required.' },
   { q: 'Do you keep logs of my activity?', a: 'No. We do not log or store any information about your online activities — no IP addresses, DNS queries, websites visited, or connection times.' },
-  { q: 'What payment methods do you accept?', a: 'We accept credit and debit cards (via PaymentsCloud) and a wide range of cryptocurrencies (via Plisio).' },
+  { q: 'What payment methods do you accept?', a: 'We only accept cryptocurrency payments through Plisio.' },
   { q: 'How many devices can I connect?', a: 'All plans include up to 10 simultaneous connections under one account. Account sharing is not permitted.' },
   { q: 'What is a recovery kit?', a: 'A recovery kit is a unique code provided after account creation. If you lose your password, you can use this kit to recover your account and set a new password. Each kit is single-use.' },
   { q: 'How do I contact support?', a: 'Email us at ahoyvpn@ahoyvpn.net or use the Contact Support button in the footer. We aim to respond within 24 hours.' },
@@ -223,8 +223,8 @@ export default function Home() {
           ))}
         </div>
         <p style={styles.pricingNote}>
-          Card payments available for Monthly and Quarterly plans.{' '}
-          <Link href="/faq" style={{ color: '#3B82F6' }}>Learn more</Link> about cryptocurrency options.
+          Crypto-only checkout across every plan.{' '}
+          <Link href="/faq" style={{ color: '#3B82F6' }}>Learn more</Link> about supported coins.
         </p>
       </section>
 

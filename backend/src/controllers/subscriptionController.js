@@ -40,7 +40,7 @@ const getPlans = async (req, res) => {
 
 const userService = require('../services/userService');
 const db = require('../config/database');
-const { cancelArbSubscription } = require('../services/authorizeNetUtils');
+
 const log = require('../utils/logger');
 
 const getSubscription = async (req, res) => {
@@ -179,16 +179,6 @@ const cancelSubscription = async (req, res) => {
       return res.status(400).json({ error: 'Subscription is already cancelled' });
     }
     
-    // Attempt ARB cancellation at Authorize.net (non-fatal if it fails)
-    const arbSubscriptionId = subscription.metadata?.arb_subscription_id;
-    if (arbSubscriptionId) {
-      try {
-        await cancelArbSubscription(arbSubscriptionId);
-      } catch (arbError) {
-        log.error('ARB cancellation failed (will proceed with DB update)', { error: arbError.message || String(arbError) });
-      }
-    }
-
     // Update subscription status to cancelled
     const updateQuery = `
       UPDATE subscriptions

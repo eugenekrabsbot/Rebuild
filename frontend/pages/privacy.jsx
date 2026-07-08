@@ -33,13 +33,11 @@ const SECTIONS = [
   },
   {
     title: '4. Payment Information',
-    content: `Payments are processed entirely by Plisio (cryptocurrency) or PaymentsCloud (fiat), and tax data is calculated by ZipTax. AHOY VPN never stores or handles payment card data on our own servers. Your payment information is handled and stored securely by these third-party providers.
+    content: `Payments are processed entirely by Plisio (cryptocurrency), and tax data is calculated by ZipTax. AHOY VPN never stores or handles payment card data on our own servers. Your payment information is handled and stored securely by these third-party providers.
 
-We configure all payment gateways to be as non-invasive as possible, but we still recommend entering full card details when paying via fiat to reduce the chances of a transaction being denied or scrutinized and impacting your access to service.
+We only accept cryptocurrency, which keeps the checkout flow simpler and avoids card data entirely.
 
-The most anonymous way to pay is through cryptocurrency.
-
-Fiat details may be stored by our payment processor for renewals, and all transactions will ask for country, province/state, and postal code prior to creating the checkout form due to sales tax liabilities.
+All transactions will ask for country, province/state, and postal code prior to creating the checkout form due to sales tax liabilities.
 
 Details such as cryptocurrency wallet information and tax jurisdiction information may exist briefly on our server while the system uses them, but are promptly disposed of afterward.
 
@@ -93,7 +91,7 @@ Our third-party tax/payment processors may handle data differently, which is why
     content: 'We use third-party services for:',
     items: [
       'Tax Calculation: ZipTax',
-      'Payments: Plisio (crypto) and PaymentsCloud (fiat) — see their privacy policies',
+      'Payments: Plisio (crypto) — see their privacy policy',
       'Hosting & Security: NGINX (reverse proxy) and Cloudflare (reverse proxy/security)',
       'Analytics: Cloudflare Web Analytics (rum.js) — aggregate session data only, no PII stored',
     ],

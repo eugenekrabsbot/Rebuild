@@ -36,11 +36,12 @@
 
 const db = require('../config/database');
 const VpnResellersService = require('./vpnResellersService');
-const { AuthorizeNetService } = require('./authorizeNetUtils');
+
 const log = require('../utils/logger');
 
 const vpnResellersService = new VpnResellersService();
-const authorizeService = new AuthorizeNetService();
+// Authorize.net removed — card payments no longer supported
+const authorizeService = { getArbSubscription: async () => null, _makeRequest: async () => null };
 
 const PLAN_DAYS = { month: 30, quarter: 90, semi_annual: 180, year: 365 };
 

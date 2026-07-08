@@ -220,7 +220,7 @@ const PAGES = {
           name: 'What payment methods are accepted?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'AhoyVPN accepts credit/debit cards (via Authorize.net) and cryptocurrency (via Plisio).',
+            text: 'AhoyVPN only accepts cryptocurrency payments via Plisio.',
           },
         },
       ],
@@ -324,7 +324,7 @@ const PAGES = {
   },
   'checkout': {
     title: 'Checkout | AHOY VPN',
-    description: 'Complete your AhoyVPN purchase securely. Cards and crypto accepted.',
+    description: 'Complete your AhoyVPN purchase securely with cryptocurrency.',
     h1: 'Secure Checkout',
   },
   'payment-success': {
@@ -351,16 +351,6 @@ const PAGES = {
     title: 'Affiliate Agreement | AHOY VPN',
     description: 'Official affiliate program terms and conditions for AhoyVPN partners.',
     h1: 'Affiliate Agreement',
-  },
-  'update-payment': {
-    title: 'Update Payment | AHOY VPN',
-    description: 'Update your payment method for AhoyVPN.',
-    h1: 'Update Payment Method',
-  },
-  'authorize-redirect': {
-    title: 'Redirecting... | AHOY VPN',
-    description: 'Redirecting you to the payment processor.',
-    h1: 'Redirecting',
   },
   'downloads': {
     title: 'Downloads | AHOY VPN',

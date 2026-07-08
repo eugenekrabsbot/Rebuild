@@ -17,14 +17,11 @@
  *   provision.vpn   → createVpnAccount
  *   provision.key   → provisionAccessKey
  *   provision.email → sendAccountCreatedEmail
- *   provision.arb   → createArbSubscriptionFromProfile
  */
 const paymentEventService = require('./paymentEventService');
 const vpnResellersService = require('./vpnResellersService');
 const { provisionAccessKey } = require('./accessKeyService');
 const emailService = require('./emailService');
-const { getAuthorizeTransactionDetails } = require('./authorizeNetUtils');
-const AuthorizeNetService = require('./authorizeNetUtils').AuthorizeNetService;
 const db = require('../config/database');
 const log = require('../utils/logger');
 
@@ -71,50 +68,6 @@ async function handleProvisionEmail(event) {
   return { sent: true };
 }
 
-async function handleProvisionArb(event) {
-  const { payload, external_id: externalId } = event;
-  const txDetails = payload.transactionDetails;
-
-  if (!txDetails?.customerProfileId || !txDetails?.customerPaymentProfileId) {
-    throw new Error('provision.arb: missing customerProfileId or customerPaymentProfileId for ' + externalId);
-  }
-
-  const arbIntervals = new Set(['month', 'quarter']);
-  if (!arbIntervals.has(payload.plan_interval)) {
-    return { skipped: 'non-recurring plan' };
-  }
-
-  const intervalLength = payload.plan_interval === 'quarter' ? 3 : 1;
-  const periodEnd = new Date(payload.current_period_end);
-  const arbStartDate = new Date(periodEnd);
-  arbStartDate.setDate(arbStartDate.getDate() + 1);
-  const arbStartStr = arbStartDate.toISOString().split('T')[0];
-
-  const arbAmount = ((payload.amount_cents || 599) / 100).toFixed(2);
-
-  const arbResult = await AuthorizeNetService.createArbSubscriptionFromProfile({
-    amount: arbAmount,
-    intervalLength,
-    intervalUnit: 'months',
-    startDate: arbStartStr,
-    customerProfileId: txDetails.customerProfileId,
-    customerPaymentProfileId: txDetails.customerPaymentProfileId,
-    subscriberEmail: payload.email || '',
-    description: 'AhoyVPN ' + (payload.plan_interval === 'quarter' ? 'Quarterly' : 'Monthly') + ' Plan',
-    invoiceNumber: externalId,
-  });
-
-  if (arbResult?.subscriptionId && payload.subscription_id) {
-    await db.query(
-      'UPDATE subscriptions SET arb_subscription_id = $1, updated_at = NOW() WHERE id = $2',
-      [arbResult.subscriptionId, payload.subscription_id]
-    );
-  }
-
-  return { arbSubscriptionId: arbResult?.subscriptionId };
-}
-
-// ── Main dispatch ─────────────────────────────────────────────────────────────
 
 async function processEvent(event) {
   const { event_type: eventType, external_id: externalId, payment_method: paymentMethod } = event;
@@ -130,9 +83,6 @@ async function processEvent(event) {
         break;
       case 'provision.email':
         result = await handleProvisionEmail(event);
-        break;
-      case 'provision.arb':
-        result = await handleProvisionArb(event);
         break;
       default:
         log.warn('[paymentEventProcessor] Unknown event_type', { eventType, externalId });

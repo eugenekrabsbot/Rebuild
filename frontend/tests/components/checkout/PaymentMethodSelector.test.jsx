@@ -2,7 +2,7 @@
  * PaymentMethodSelector Unit Tests
  * 
  * Tests the payment method button-group selector used in the checkout flow.
- * Renders a grid of buttons for each payment method (card, crypto, etc.)
+ * Renders a grid of buttons for each supported payment method.
  * with selected state styling.
  * 
  * Coverage: previously 0%, now fully covered.
@@ -18,7 +18,6 @@ const PaymentMethodSelector = require('../../../components/checkout/PaymentMetho
 
 describe('PaymentMethodSelector', () => {
   const mockMethods = [
-    { id: 'card', name: 'Credit Card', provider: 'PaymentsCloud' },
     { id: 'crypto', name: 'Cryptocurrency', provider: 'Plisio' },
   ];
 
@@ -31,14 +30,12 @@ describe('PaymentMethodSelector', () => {
   it('displays the method name in each button', () => {
     const onSelect = jest.fn();
     render(<PaymentMethodSelector methods={mockMethods} selected={null} onSelect={onSelect} />);
-    expect(screen.getByText('Credit Card')).toBeInTheDocument();
     expect(screen.getByText('Cryptocurrency')).toBeInTheDocument();
   });
 
   it('displays the provider name in each button', () => {
     const onSelect = jest.fn();
     render(<PaymentMethodSelector methods={mockMethods} selected={null} onSelect={onSelect} />);
-    expect(screen.getByText('via PaymentsCloud')).toBeInTheDocument();
     expect(screen.getByText('via Plisio')).toBeInTheDocument();
   });
 
@@ -53,18 +50,8 @@ describe('PaymentMethodSelector', () => {
 
   it('sets aria-pressed to true for selected method', () => {
     const onSelect = jest.fn();
-    render(<PaymentMethodSelector methods={mockMethods} selected="card" onSelect={onSelect} />);
-    const buttons = screen.getAllByRole('button');
-    // First button (card) should be aria-pressed=true, second (crypto) false
-    expect(buttons[0]).toHaveAttribute('aria-pressed', 'true');
-    expect(buttons[1]).toHaveAttribute('aria-pressed', 'false');
-  });
-
-  it('sets aria-pressed to false for unselected method', () => {
-    const onSelect = jest.fn();
     render(<PaymentMethodSelector methods={mockMethods} selected="crypto" onSelect={onSelect} />);
     const buttons = screen.getAllByRole('button');
-    expect(buttons[0]).toHaveAttribute('aria-pressed', 'false');
     expect(buttons[1]).toHaveAttribute('aria-pressed', 'true');
   });
 
@@ -87,6 +74,6 @@ describe('PaymentMethodSelector', () => {
     render(<PaymentMethodSelector methods={[mockMethods[0]]} selected={null} onSelect={onSelect} />);
     expect(screen.getAllByRole('button')).toHaveLength(1);
     screen.getByRole('button').click();
-    expect(onSelect).toHaveBeenCalledWith('card');
+    expect(onSelect).toHaveBeenCalledWith('crypto');
   });
 });

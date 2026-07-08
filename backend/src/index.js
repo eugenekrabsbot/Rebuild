@@ -236,7 +236,7 @@ if (process.env.DISABLE_PLISIO_POLLING !== 'true') {
     invoicePollingService.runOnce().catch((error) => {
       log.error('Invoice polling run failed', { error: error.message });
     });
-    // Also poll ARB subscriptions for Authorize.net fiat payments
+    // Also poll any legacy subscription reconciliation jobs
     invoicePollingService.pollArbSubscriptions().catch((error) => {
       log.error('ARB polling run failed', { error: error.message });
     });

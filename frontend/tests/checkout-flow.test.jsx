@@ -4,7 +4,7 @@
  * Tests that the Checkout page renders and composes with its extracted components.
  * 
  * WHY THIS TEST:
- * - Verifies the Checkout page correctly uses PlanSelector and PaymentMethodSelector
+ * - Verifies the Checkout page correctly uses PlanSelector and crypto-only checkout UI
  * - Ensures the refactor (Task 4) didn't break the page's ability to render
  * - Acts as a smoke test for the checkout flow
  * 
@@ -120,7 +120,7 @@ describe('Checkout Flow Integration', () => {
   });
 
   describe('Payment Step', () => {
-    it('shows payment method options when payment step is active', async () => {
+    it('shows crypto checkout options when payment step is active', async () => {
       render(<Checkout />, { wrapper: MockAuthProvider });
       const user = userEvent.setup();
 
@@ -128,9 +128,9 @@ describe('Checkout Flow Integration', () => {
       const continueBtn = screen.getByRole('button', { name: /continue to payment/i });
       await user.click(continueBtn);
 
-      // Should show payment method options
+      // Should show crypto-only checkout options
       expect(screen.getByText('Cryptocurrency')).toBeInTheDocument();
-      expect(screen.getByText('Credit Card (Visa/Mastercard)')).toBeInTheDocument();
+      expect(screen.queryByText(/credit card/i)).not.toBeInTheDocument();
     });
   });
 });

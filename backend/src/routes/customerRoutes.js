@@ -37,6 +37,4 @@ router.post('/me/subscription/change-plan', customerController.changePlan);
 router.delete('/me', customerController.deleteAccount);
 router.get('/me/messages', customerController.getMessages);
 router.post('/me/support-ticket', customerController.createSupportTicket);
-router.get('/me/update-payment', customerController.updatePaymentRedirect);
-
 module.exports = router;

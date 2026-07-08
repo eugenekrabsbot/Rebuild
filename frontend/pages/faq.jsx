@@ -45,12 +45,12 @@ const FAQS = [
   {
     question: 'Do you store payment information?',
     answer:
-      'No. All payments are processed by third-party providers (Plisio for cryptocurrency, PaymentsCloud for fiat). They may retain limited billing details for tax and renewal purposes, but AHOY VPN never stores payment data on our own servers.',
+      'No. Payments are processed by Plisio for cryptocurrency, and AHOY VPN never stores payment data on our own servers.',
   },
   {
     question: 'What payment methods do you accept?',
     answer:
-      'We accept credit/debit cards and a wide range of cryptocurrencies. Cards are processed by PaymentsCloud; crypto is processed by Plisio.',
+      'We accept cryptocurrency only. All checkout payments are processed through Plisio.',
   },
   {
     question: 'Which cryptocurrencies do you accept?',

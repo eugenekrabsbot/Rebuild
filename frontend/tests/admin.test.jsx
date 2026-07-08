@@ -123,7 +123,7 @@ describe('admin.jsx', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Cryptocurrency')).toBeInTheDocument();
-        expect(screen.getByText('Fiat (Credit Card)')).toBeInTheDocument();
+        expect(screen.getByText('Crypto (Plisio)')).toBeInTheDocument();
         expect(screen.getByText('62%')).toBeInTheDocument();
         expect(screen.getByText('38%')).toBeInTheDocument();
       });

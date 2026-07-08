@@ -210,29 +210,6 @@ async function runOnce() {
     throw error;
   }
 }
-
-// AuthorizeNetService instance — hoisted to module level so tests can inject a mock.
-// Accepts an optional injectable for testing; falls back to creating a real instance.
-// This avoids an inner require() that would create a fresh mock on every call.
-let _authorizeService = null;
-function _getAuthorizeService() {
-  if (!_authorizeService) {
-    const { AuthorizeNetService } = require('./authorizeNetUtils');
-    _authorizeService = new AuthorizeNetService();
-  }
-  return _authorizeService;
-}
-
-/**
- * Reset the cached AuthorizeNetService instance.
- * CRITICAL FOR TESTS: Call this in beforeEach to ensure each test gets a fresh
- * instance with the correct mock setup. Without this, the first test to call
- * _getAuthorizeService caches an instance that subsequent tests can't override.
- */
-function _resetAuthorizeService() {
-  _authorizeService = null;
-}
-
 /**
  * pollArbSubscriptions — Poll Authorize.net ARB subscriptions for payment events.
  *
@@ -260,97 +237,7 @@ function _resetAuthorizeService() {
  * @param {object} opts - Test injection: { authorizeService }
  * @returns {Promise<void>}
  */
-async function pollArbSubscriptions(opts = {}) {
-  const authorizeService = opts.authorizeService || _getAuthorizeService();
-
-  // Find ARB subscriptions that are active/trialing and poll their status
-  const { rows: subs } = await db.query(`
-    SELECT s.id, s.user_id, s.status, s.metadata, s.current_period_end,
-           p.interval as plan_interval, p.amount_cents
-    FROM subscriptions s
-    JOIN plans p ON p.id = s.plan_id
-    WHERE s.status IN ('trialing', 'active')
-      AND s.metadata->>'arb_subscription_id' IS NOT NULL
-      AND s.updated_at < NOW() - INTERVAL '5 minutes'
-    LIMIT 50
-  `);
-
-  try {
-    for (const sub of subs) {
-      try {
-        const arbId = sub.metadata?.arb_subscription_id;
-        if (!arbId) continue;
-
-        const arbSub = await authorizeService.getArbSubscription(arbId);
-        if (!arbSub) continue;
-
-        const arbStatus = String(arbSub.status || '').toLowerCase();
-        const paymentStatus = arbSub.paymentStatus || '';
-
-        log.info('ARB poll', { subscriptionId: sub.id, arbId, status: arbStatus, payment: paymentStatus });
-
-        // If ARB is suspended/canceled but subscription is still active → suspend VPN
-        if (arbStatus === 'suspended' || arbStatus === 'canceled' || paymentStatus === 'suspended') {
-          await db.query(
-            `UPDATE subscriptions SET status = 'canceled', updated_at = NOW() WHERE id = $1`,
-            [sub.id]
-          );
-
-          const vpnAccount = await db.query(
-            `SELECT id, vpn_uuid FROM vpn_accounts WHERE user_id = $1 AND status = 'active'`,
-            [sub.user_id]
-          );
-
-          if (vpnAccount.rows.length > 0) {
-            const va = vpnAccount.rows[0];
-            if (va.vpn_uuid) {
-              try {
-                await vpnResellersService.deactivateAccount({ account_id: va.vpn_uuid });
-              } catch (err) {
-                log.warn('Failed to deactivate VPN on ARB cancel', { vpnUuid: va.vpn_uuid, error: err.message });
-              }
-            }
-            await db.query(
-              `UPDATE vpn_accounts SET status = 'suspended', updated_at = NOW() WHERE id = $1`,
-              [va.id]
-            );
-          }
-
-          await db.query(
-            `UPDATE users SET is_active = false, updated_at = NOW() WHERE id = $1`,
-            [sub.user_id]
-          );
-
-          log.info('ARB subscription canceled', { arbId });
-        }
-
-        // If ARB is active and payment came through → activate subscription
-        if ((arbStatus === 'active' || arbStatus === 'trial') && paymentStatus === 'settledSuccessfully') {
-          await db.query(
-            `UPDATE subscriptions SET status = 'active', updated_at = NOW() WHERE id = $1`,
-            [sub.id]
-          );
-          await db.query(
-            `UPDATE users SET is_active = true, updated_at = NOW() WHERE id = $1`,
-            [sub.user_id]
-          );
-          log.info('ARB payment confirmed, subscription activated', { arbId });
-        }
-      } catch (error) {
-        // Inner catch: one bad subscription doesn't stop the polling run.
-        log.error('ARB polling error for subscription', { subscriptionId: sub.id, error: error.message || error });
-      }
-    }
-  } catch (error) {
-    // Outer catch: catastrophic failure. Re-throw so scheduler can retry.
-    log.error('ARB polling run failed catastrophically', { error: error.message || error });
-    throw error;
-  }
-}
-
 module.exports = {
   runOnce,
-  pollArbSubscriptions,
-  CHECKPOINT_MINUTES,
-  _resetAuthorizeService
+  CHECKPOINT_MINUTES
 };

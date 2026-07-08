@@ -7,7 +7,7 @@
 // admin page from growing unbounded as more tabs are added.
 //
 // PROPS:
-//   - metrics: object with { totalCustomers, activeSubscriptions, mrr, cryptoVsFiat }
+//   - metrics: object with { totalCustomers, activeSubscriptions, mrr }
 //     (shape matches adminController.getAdminMetrics() response)
 
 import React from 'react';
@@ -29,7 +29,7 @@ export default function KPITab({ metrics }) {
       </div>
 
       {/* Payment Method Split */}
-      <Card title="Payment Method Split" style={{ marginBottom: '2rem' }}>
+      <Card title="Payment Method Mix" style={{ marginBottom: '2rem' }}>
         <div style={styles.paymentSplit}>
           <div style={styles.splitItem}>
             <div style={styles.splitLabel}>Cryptocurrency</div>
@@ -37,24 +37,11 @@ export default function KPITab({ metrics }) {
               <div
                 style={{
                   ...styles.splitFill,
-                  width: `${metrics.cryptoVsFiat.crypto}%`,
+                  width: '100%',
                 }}
               />
             </div>
-            <div style={styles.splitPercent}>{metrics.cryptoVsFiat.crypto}%</div>
-          </div>
-          <div style={styles.splitItem}>
-            <div style={styles.splitLabel}>Fiat (Credit Card)</div>
-            <div style={styles.splitBar}>
-              <div
-                style={{
-                  ...styles.splitFill,
-                  backgroundColor: '#20B2AA', // teal for fiat
-                  width: `${metrics.cryptoVsFiat.fiat}%`,
-                }}
-              />
-            </div>
-            <div style={styles.splitPercent}>{metrics.cryptoVsFiat.fiat}%</div>
+            <div style={styles.splitPercent}>100%</div>
           </div>
         </div>
       </Card>
@@ -64,7 +51,7 @@ export default function KPITab({ metrics }) {
         <ul style={styles.notesList}>
           <li>MRR is calculated from active subscriptions only</li>
           <li>Crypto includes Bitcoin and other cryptocurrencies via Plisio</li>
-          <li>Fiat includes all credit card payments via PaymentsCloud</li>
+          <li>All customer payments are crypto-only via Plisio</li>
           <li>Metrics update in real-time as subscriptions change</li>
         </ul>
       </Card>

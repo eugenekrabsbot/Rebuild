@@ -124,7 +124,7 @@ export default function Register() {
         <Card style={styles.explanationCard}>
           <p style={styles.explanationText}>
             <strong>Signup Process:</strong><br/><br/>
-            Upon setting your password, we will provide you with a unique user ID. Please save this user ID, then log in using your ID and password. Proceed to generate a recovery kit and purchase a subscription via fiat payment.<br/><br/>
+            Upon setting your password, we will provide you with a unique user ID. Please save this user ID, then log in using your ID and password. Proceed to generate a recovery kit and purchase a subscription with cryptocurrency.<br/><br/>
             Please allow one to two minutes for the payment form to process your transaction. If your VPN client credentials do not appear instantly on your dashboard, please wait an additional 15–30 minutes. If you still do not see the credentials after that time, contact William at ahoyvpn@ahoyvpn.net for assistance.
           </p>
         </Card>

@@ -106,13 +106,12 @@ describe('privacy.jsx — Privacy Policy Page', () => {
       const card = screen.getByRole('heading', { level: 3, name: '4. Payment Information' }).closest('section') ||
                     screen.getByRole('heading', { level: 3, name: '4. Payment Information' }).parentElement;
       expect(card.textContent).toContain('Plisio');
-      expect(card.textContent).toContain('PaymentsCloud');
       expect(card.textContent).toContain('ZipTax');
     });
 
-    it('mentions cryptocurrency as the most anonymous option', () => {
+    it('mentions cryptocurrency-only checkout', () => {
       render(<PrivacyPolicy />);
-      expect(screen.getByText(/most anonymous way to pay is through cryptocurrency/i)).toBeInTheDocument();
+      expect(screen.getByText(/We only accept cryptocurrency/i)).toBeInTheDocument();
     });
   });
 
@@ -181,12 +180,11 @@ describe('privacy.jsx — Privacy Policy Page', () => {
       expect(screen.getByRole('heading', { level: 3, name: '9. Third-Party Services' })).toBeInTheDocument();
     });
 
-    it('lists ZipTax, Plisio, PaymentsCloud', () => {
+    it('lists ZipTax and Plisio', () => {
       render(<PrivacyPolicy />);
       const card = screen.getByRole('heading', { level: 3, name: '9. Third-Party Services' }).parentElement;
       expect(card.textContent).toContain('ZipTax');
       expect(card.textContent).toContain('Plisio');
-      expect(card.textContent).toContain('PaymentsCloud');
     });
 
     it('mentions Cloudflare Web Analytics', () => {

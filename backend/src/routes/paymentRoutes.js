@@ -8,16 +8,9 @@ const webhookController = require('../controllers/webhookController');
 // ═══════════════════════════════════════════════════════════
 
 // Webhook endpoints
-router.post('/webhook/authorize', webhookController.authorizeNetWebhook);
 router.post('/webhook/paymentscloud', webhookController.paymentsCloudWebhook);
 
-// Hosted payment bridge
-router.get('/hosted-redirect-script.js', paymentController.hostedRedirectScript);
-router.get('/hosted-redirect', paymentController.hostedRedirectBridge);
 
-// Authorize relay response (public return from hosted payment page)
-router.get('/authorize/relay', paymentController.authorizeRelayResponse);
-router.post('/authorize/relay', paymentController.authorizeRelayResponse);
 
 // Invoice status (public callback from Plisio)
 router.get('/invoice/:invoiceId/status', paymentController.getInvoiceStatus);

@@ -16,8 +16,6 @@ const cspConfig = {
       "https://*.plisio.com",
       "https://paymentscloud.com",
       "https://*.paymentscloud.com",
-      "https://accept.authorize.net",
-      "https://test.authorize.net"
     ],
     frameAncestors: ["'none'"],
     imgSrc: [
@@ -34,8 +32,6 @@ const cspConfig = {
       "https://*.plisio.com",
       "https://paymentscloud.com",
       "https://*.paymentscloud.com",
-      "https://accept.authorize.net",
-      "https://test.authorize.net"
     ],
     scriptSrcAttr: ["'none'"],
     styleSrc: ["'self'", "https:", "'unsafe-inline'"],
@@ -45,8 +41,6 @@ const cspConfig = {
       "https://*.plisio.com",
       "https://api.paymentscloud.com",
       "https://*.paymentscloud.com",
-      "https://accept.authorize.net",
-      "https://test.authorize.net",
       "https://maps.googleapis.com"
     ],
     mediaSrc: ["'self'"],

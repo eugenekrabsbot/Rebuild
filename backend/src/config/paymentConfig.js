@@ -28,16 +28,6 @@ const paymentConfig = {
     }
   },
 
-  // Authorize.net Configuration
-  authorizeNet: {
-    apiLoginId: process.env.AUTHORIZE_NET_API_LOGIN_ID,
-    transactionKey: process.env.AUTHORIZE_NET_TRANSACTION_KEY,
-    environment: process.env.NODE_ENV === 'production' ? 'production' : 'sandbox',
-    endpoints: {
-      charge: 'https://api.authorize.net/xml/v1/request.api'
-    }
-  },
-
   // Plisio Configuration (already exists)
   plisios: {
     apiKey: process.env.PLISIO_API_KEY,

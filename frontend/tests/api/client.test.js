@@ -697,14 +697,14 @@ describe('Subscription', () => {
 describe('Checkout', () => {
   it('initiateCheckout — POST /payment/checkout with planId and paymentMethod', async () => {
     postSpy.mockResolvedValueOnce({ data: {} });
-    await api.initiateCheckout('monthly', 'card');
-    expect(postSpy).toHaveBeenCalledWith('/payment/checkout', { planId: 'monthly', paymentMethod: 'card' });
+    await api.initiateCheckout('monthly', 'crypto');
+    expect(postSpy).toHaveBeenCalledWith('/payment/checkout', { planId: 'monthly', paymentMethod: 'crypto' });
   });
 
   it('initiateCheckout with affiliateId — includes affiliateId in payload', async () => {
     postSpy.mockResolvedValueOnce({ data: {} });
-    await api.initiateCheckout('monthly', 'card', 'AFF123');
-    expect(postSpy).toHaveBeenCalledWith('/payment/checkout', { planId: 'monthly', paymentMethod: 'card', affiliateId: 'AFF123' });
+    await api.initiateCheckout('monthly', 'crypto', 'AFF123');
+    expect(postSpy).toHaveBeenCalledWith('/payment/checkout', { planId: 'monthly', paymentMethod: 'crypto', affiliateId: 'AFF123' });
   });
 
   it('initiateCheckout with cryptoCurrency — includes cryptoCurrency', async () => {
@@ -715,22 +715,22 @@ describe('Checkout', () => {
 
   it('initiateCheckout with billing options — country, state, postalCode', async () => {
     postSpy.mockResolvedValueOnce({ data: {} });
-    await api.initiateCheckout('monthly', 'card', null, { country: 'US', stateOrProvince: 'CA', postalCode: '90210' });
+    await api.initiateCheckout('monthly', 'crypto', null, { country: 'US', stateOrProvince: 'CA', postalCode: '90210' });
     expect(postSpy).toHaveBeenCalledWith(
       '/payment/checkout',
-      { planId: 'monthly', paymentMethod: 'card', country: 'US', stateOrProvince: 'CA', postalCode: '90210' }
+      { planId: 'monthly', paymentMethod: 'crypto', country: 'US', stateOrProvince: 'CA', postalCode: '90210' }
     );
   });
 
   it('initiateCheckout with returnUrl and cancelUrl', async () => {
     postSpy.mockResolvedValueOnce({ data: {} });
-    await api.initiateCheckout('monthly', 'card', null, {
+    await api.initiateCheckout('monthly', 'crypto', null, {
       returnUrl: 'https://app.ahoyvpn.com/thankyou',
       cancelUrl: 'https://app.ahoyvpn.com/checkout',
     });
     expect(postSpy).toHaveBeenCalledWith(
       '/payment/checkout',
-      { planId: 'monthly', paymentMethod: 'card', returnUrl: 'https://app.ahoyvpn.com/thankyou', cancelUrl: 'https://app.ahoyvpn.com/checkout' }
+      { planId: 'monthly', paymentMethod: 'crypto', returnUrl: 'https://app.ahoyvpn.com/thankyou', cancelUrl: 'https://app.ahoyvpn.com/checkout' }
     );
   });
 
@@ -880,8 +880,8 @@ describe('Nexus Overview — query string branch coverage', () => {
 describe('Checkout — initiateCheckout edge case branches', () => {
   it('initiateCheckout with only plan and paymentMethod — minimal payload', async () => {
     postSpy.mockResolvedValueOnce({ data: {} });
-    await api.initiateCheckout('monthly', 'card');
-    expect(postSpy).toHaveBeenCalledWith('/payment/checkout', { planId: 'monthly', paymentMethod: 'card' });
+    await api.initiateCheckout('monthly', 'crypto');
+    expect(postSpy).toHaveBeenCalledWith('/payment/checkout', { planId: 'monthly', paymentMethod: 'crypto' });
   });
 
   it('initiateCheckout with affiliateId — affiliateId branch (line 227)', async () => {

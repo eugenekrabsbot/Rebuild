@@ -6,13 +6,13 @@ const webhookController = require('../controllers/webhookController');
 // NOTE: Plisio may send callbacks as GET (with query params) or POST (with JSON body)
 router.post('/webhooks/plisio', webhookController.plisioWebhook);
 router.get('/webhooks/plisio', webhookController.plisioWebhook);
-router.post('/webhooks/authorize', webhookController.authorizeNetWebhook);
+
 router.post('/webhooks/paymentscloud', webhookController.paymentsCloudWebhook);
 
 // Backward-compatible aliases
 router.post('/payment/webhook/plisio', webhookController.plisioWebhook);
 router.get('/payment/webhook/plisio', webhookController.plisioWebhook);
-router.post('/payment/webhook/authorize', webhookController.authorizeNetWebhook);
+
 router.post('/payment/webhook/paymentscloud', webhookController.paymentsCloudWebhook);
 
 module.exports = router;

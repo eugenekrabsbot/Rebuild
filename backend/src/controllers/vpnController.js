@@ -55,7 +55,7 @@ const getServers = async (req, res) => {
  * 
  * Flow:
  * 1. Look up vpn_accounts table for this user (by req.user.id from auth middleware)
- * 2. Call vpnResellersService.getAccount(vpnresellers_uuid) to get live credentials
+ * 2. Call vpnResellersService.getAccount(vpn_uuid) to get live credentials
  * 3. Return WireGuard config text
  */
 const getWireGuardConfig = async (req, res) => {
@@ -67,7 +67,7 @@ const getWireGuardConfig = async (req, res) => {
 
     // Look up the user's VPN account in our database
     const result = await db.query(
-      'SELECT vpnresellers_uuid, vpnresellers_username FROM vpn_accounts WHERE user_id = $1',
+      'SELECT vpn_uuid, vpn_username, vpn_password FROM vpn_accounts WHERE user_id = $1',
       [userId]
     );
 
@@ -75,32 +75,39 @@ const getWireGuardConfig = async (req, res) => {
       return res.status(404).json({ error: 'No VPN account found. Please complete payment first.' });
     }
 
-    const { vpnresellers_uuid: accountId } = result.rows[0];
+    const { vpn_uuid: accountId, vpn_username: dbUsername, vpn_password: dbPassword } = result.rows[0];
 
     // Fetch live account details from VPN Resellers API
-    const account = await vpnResellersService.getAccount(accountId);
+    const apiResponse = await vpnResellersService.getAccount(accountId);
+    const account = apiResponse?.data || apiResponse;
 
-    // Build WireGuard config using account credentials
-    // The account response from VPN Resellers API contains server_ip, username, password
+    // VPNResellers API returns wg_private_key (client private key), wg_public_key (client pub key),
+    // and wg_ip (client WireGuard IP). The server's WireGuard public key and hostname must
+    // be obtained from VPNResellers — they do not expose a server list API.
+    // TODO: Replace SERVER_PUBLIC_KEY and SERVER_HOSTNAME with values from VPNResellers.
+    const clientPrivateKey = account.wg_private_key || '';
+    const clientAddress = account.wg_ip ? `${account.wg_ip}/32` : '';
+
     const wgConfig = [
       '[Interface]',
-      `PrivateKey = <YOUR_PRIVATE_KEY>`,
-      `Address = 10.0.0.2/32`,
+      `PrivateKey = ${clientPrivateKey || '<YOUR_WG_PRIVATE_KEY>'}`,
+      `Address = ${clientAddress || '<YOUR_WG_IP>/32'}`,
       'DNS = 1.1.1.1',
       '',
       '[Peer]',
-      `PublicKey = ${account.server_public_key || 'SERVER_PUBLIC_KEY'}`,
-      `Endpoint = ${account.server_ip || account.server_host}:51820`,
+      // Replace these placeholders with your server's WireGuard public key and hostname
+      `PublicKey = SERVER_PUBLIC_KEY`,
+      `Endpoint = SERVER_HOSTNAME:51820`,
       'AllowedIPs = 0.0.0.0/0',
       'PersistentKeepalive = 25',
     ].join('\n');
 
     res.json({
       config: wgConfig,
-      server: account.server_name || account.server_host,
-      username: account.username,
-      // Password intentionally omitted from API response for security;
-      // user should retrieve it from their dashboard or email
+      username: dbUsername || account.username,
+      password: dbPassword || account.password,
+      clientAddress,
+      note: 'Replace SERVER_PUBLIC_KEY and SERVER_HOSTNAME with values from VPNResellers. Server public key and hostname are not returned by the VPNResellers API — contact VPNResellers support to obtain them.',
     });
   } catch (err) {
     log.error('getWireGuardConfig error:', { error: err.message });
@@ -120,7 +127,7 @@ const getOpenVPNConfig = async (req, res) => {
     }
 
     const result = await db.query(
-      'SELECT vpnresellers_uuid, vpnresellers_username FROM vpn_accounts WHERE user_id = $1',
+      'SELECT vpn_uuid, vpn_username, vpn_password FROM vpn_accounts WHERE user_id = $1',
       [userId]
     );
 
@@ -128,15 +135,18 @@ const getOpenVPNConfig = async (req, res) => {
       return res.status(404).json({ error: 'No VPN account found. Please complete payment first.' });
     }
 
-    const { vpnresellers_uuid: accountId } = result.rows[0];
-    const account = await vpnResellersService.getAccount(accountId);
+    const { vpn_uuid: accountId, vpn_username: dbUsername, vpn_password: dbPassword } = result.rows[0];
+    const apiResponse = await vpnResellersService.getAccount(accountId);
+    const account = apiResponse?.data || apiResponse;
 
-    // Build OpenVPN config
+    // OpenVPN config requires CA cert, client cert, and client key from VPNResellers.
+    // VPNResellers does not currently expose these via API.
+    // Replace SERVER_HOSTNAME with your server hostname from VPNResellers.
     const ovpnConfig = [
       'client',
       'dev tun',
       'proto udp',
-      `remote ${account.server_ip || account.server_host} 1194`,
+      'remote SERVER_HOSTNAME 1194',
       'resolv-retry infinite',
       'nobind',
       'persist-key',
@@ -146,28 +156,15 @@ const getOpenVPNConfig = async (req, res) => {
       'auth SHA256',
       'verb 3',
       '',
-      '<ca>',
-      '-----BEGIN CERTIFICATE-----',
-      '...CA_CERT...',
-      '-----END CERTIFICATE-----',
-      '</ca>',
-      '',
-      '<cert>',
-      '-----BEGIN CERTIFICATE-----',
-      '...CLIENT_CERT...',
-      '-----END CERTIFICATE-----',
-      '</cert>',
-      '',
-      '<key>',
-      '-----BEGIN PRIVATE KEY-----',
-      '...CLIENT_KEY...',
-      '-----END PRIVATE KEY-----',
-      '</key>',
+      '# TODO: Replace CA cert, client cert, and client key with values from VPNResellers.',
+      '# OpenVPN credentials are not yet available via API — contact VPNResellers support.',
     ].join('\n');
 
     res.json({
       config: ovpnConfig,
-      server: account.server_name || account.server_host,
+      username: dbUsername || account.username,
+      password: dbPassword || account.password,
+      note: 'OpenVPN credentials (CA cert, client cert, client key) are not yet available via API. Contact VPNResellers support to obtain them.',
     });
   } catch (err) {
     log.error('getOpenVPNConfig error:', { error: err.message });

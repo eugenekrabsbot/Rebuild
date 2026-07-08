@@ -42,14 +42,14 @@ const PLANS = [
     name: 'Semi-Annual',
     price: '$31.99',
     period: '/6 months',
-    badge: 'Crypto only',
+    badge: null,
   },
   {
     id: 'annual',
     name: 'Annual',
     price: '$59.99',
     period: '/year',
-    badge: 'Crypto only',
+    badge: null,
   },
 ];
 

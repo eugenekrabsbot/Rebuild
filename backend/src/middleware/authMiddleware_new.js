@@ -175,7 +175,7 @@ const csrfProtection = async (req, res, next) => {
     res.cookie('csrfToken', csrfToken, {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 15 * 60 * 1000,
     });
 
@@ -324,7 +324,7 @@ const setCsrfTokenCookie = (res, userId) => {
   res.cookie('csrfToken', csrfToken, {
     httpOnly: false, // JavaScript can read this
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: 'lax',
     maxAge: 15 * 60 * 1000, // 15 minutes
   });
   

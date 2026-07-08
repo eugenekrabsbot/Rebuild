@@ -24,20 +24,7 @@ export default function PlanSelector({ plans, selectedPlan, onSelect }) {
                     {plan.period}
                   </span>
                 </p>
-                {plan.cryptoOnly && (
-                  <span style={{
-                    display: 'inline-block',
-                    marginTop: '0.5rem',
-                    padding: '0.2rem 0.5rem',
-                    backgroundColor: '#2A2A2A',
-                    border: '1px solid #00CED1',
-                    borderRadius: '4px',
-                    color: '#00CED1',
-                    fontSize: '0.75rem',
-                  }}>
-                    Crypto only
-                  </span>
-                )}
+
               </div>
               <Button
                 onClick={() => onSelect(plan.id)}
